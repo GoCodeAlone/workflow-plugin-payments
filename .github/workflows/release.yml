@@ -21,11 +21,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set GOPRIVATE and configure SSH
-        run: |
-          git config --global url."git@github.com:".insteadOf "https://github.com/"
-        env:
-          GOPRIVATE: github.com/GoCodeAlone/*
+      - name: Configure Go private modules
+        run: git config --global url."https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
@@ -35,3 +32,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOPRIVATE: github.com/GoCodeAlone/*
+          GONOSUMCHECK: github.com/GoCodeAlone/*

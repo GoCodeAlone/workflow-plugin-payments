@@ -3,7 +3,7 @@ module github.com/GoCodeAlone/workflow-plugin-payments
 go 1.26.0
 
 require (
-	github.com/GoCodeAlone/workflow v0.3.24
+	github.com/GoCodeAlone/workflow v0.3.28
 	github.com/stripe/stripe-go/v82 v82.5.1
 )
 

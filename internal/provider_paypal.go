@@ -22,11 +22,12 @@ type paypalProvider struct {
 	clientID     string
 	clientSecret string
 	baseURL      string
+	webhookID    string
 	httpClient   *http.Client
 
-	tokenMu      sync.Mutex
-	accessToken  string
-	tokenExpiry  time.Time
+	tokenMu     sync.Mutex
+	accessToken string
+	tokenExpiry time.Time
 }
 
 func newPayPalProvider(config map[string]any) (*paypalProvider, error) {
@@ -53,10 +54,16 @@ func newPayPalProvider(config map[string]any) (*paypalProvider, error) {
 		baseURL = testURL
 	}
 
+	webhookID, _ := config["webhook_id"].(string)
+	if webhookID == "" {
+		webhookID, _ = config["webhookId"].(string)
+	}
+
 	return &paypalProvider{
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		baseURL:      baseURL,
+		webhookID:    webhookID,
 		httpClient:   &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }
@@ -362,14 +369,14 @@ func (p *paypalProvider) CreatePortalSession(_ context.Context, _, _ string) (*p
 	return nil, payments.ErrUnsupported
 }
 
-func (p *paypalProvider) VerifyWebhook(ctx context.Context, payload []byte, signature string) (*payments.WebhookEvent, error) {
+func (p *paypalProvider) VerifyWebhook(ctx context.Context, payload []byte, headers http.Header) (*payments.WebhookEvent, error) {
 	body := map[string]any{
-		"auth_algo":         "SHA256withRSA",
-		"cert_url":          "",
-		"transmission_id":   signature,
-		"transmission_sig":  signature,
-		"transmission_time": time.Now().UTC().Format(time.RFC3339),
-		"webhook_id":        "",
+		"auth_algo":         headers.Get("Paypal-Auth-Algo"),
+		"cert_url":          headers.Get("Paypal-Cert-Url"),
+		"transmission_id":   headers.Get("Paypal-Transmission-Id"),
+		"transmission_sig":  headers.Get("Paypal-Transmission-Sig"),
+		"transmission_time": headers.Get("Paypal-Transmission-Time"),
+		"webhook_id":        p.webhookID,
 		"webhook_event":     json.RawMessage(payload),
 	}
 	respBody, statusCode, err := p.doJSON(ctx, "POST", "/v1/notifications/verify-webhook-signature", body)

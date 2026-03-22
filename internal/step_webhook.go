@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 )
@@ -37,18 +38,36 @@ func (s *webhookStep) Execute(ctx context.Context, _ map[string]any, _ map[strin
 		return &sdk.StepResult{Output: map[string]any{"error": "missing webhook payload (request_body)"}}, nil
 	}
 
-	// Read signature from current, metadata, or config.
-	signature := resolveValue("stripe_signature", current, config)
-	if signature == "" {
-		if v, ok := metadata["stripe_signature"].(string); ok {
-			signature = v
+	// Build headers for webhook verification.
+	// Supports both Stripe (Stripe-Signature) and PayPal header conventions.
+	headers := http.Header{}
+	headerKeys := []string{
+		"Stripe-Signature",
+		"Paypal-Transmission-Id",
+		"Paypal-Transmission-Sig",
+		"Paypal-Cert-Url",
+		"Paypal-Auth-Algo",
+		"Paypal-Transmission-Time",
+	}
+	for _, key := range headerKeys {
+		if v := resolveValue(key, current, config); v != "" {
+			headers.Set(key, v)
+		} else if v, ok := metadata[key].(string); ok && v != "" {
+			headers.Set(key, v)
 		}
 	}
-	if signature == "" {
-		signature = resolveValue("webhook_signature", current, config)
+	// Legacy fallback: stripe_signature / webhook_signature keys.
+	if headers.Get("Stripe-Signature") == "" {
+		if sig := resolveValue("stripe_signature", current, config); sig != "" {
+			headers.Set("Stripe-Signature", sig)
+		} else if v, ok := metadata["stripe_signature"].(string); ok && v != "" {
+			headers.Set("Stripe-Signature", v)
+		} else if sig := resolveValue("webhook_signature", current, config); sig != "" {
+			headers.Set("Stripe-Signature", sig)
+		}
 	}
 
-	event, err := provider.VerifyWebhook(ctx, payload, signature)
+	event, err := provider.VerifyWebhook(ctx, payload, headers)
 	if err != nil {
 		return &sdk.StepResult{Output: map[string]any{"error": err.Error()}}, nil
 	}

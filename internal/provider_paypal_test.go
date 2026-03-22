@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -104,9 +105,17 @@ func TestPayPalWebhookVerify_Success(t *testing.T) {
 		}
 		http.NotFound(w, r)
 	}))
+	p.webhookID = "wh-test"
 
+	headers := http.Header{
+		"Paypal-Transmission-Id":   []string{"txn-1"},
+		"Paypal-Transmission-Sig":  []string{"sig-1"},
+		"Paypal-Cert-Url":          []string{"https://cert.example.com/cert"},
+		"Paypal-Auth-Algo":         []string{"SHA256withRSA"},
+		"Paypal-Transmission-Time": []string{"2024-01-01T00:00:00Z"},
+	}
 	payload := []byte(`{"id":"WH_1","event_type":"PAYMENT.CAPTURE.COMPLETED","resource":{}}`)
-	event, err := p.VerifyWebhook(context.Background(), payload, "test_sig")
+	event, err := p.VerifyWebhook(context.Background(), payload, headers)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,10 +134,146 @@ func TestPayPalWebhookVerify_Failure(t *testing.T) {
 		}
 		http.NotFound(w, r)
 	}))
+	p.webhookID = "wh-test"
 
-	_, err := p.VerifyWebhook(context.Background(), []byte(`{}`), "bad_sig")
+	headers := http.Header{
+		"Paypal-Transmission-Id":   []string{"txn-bad"},
+		"Paypal-Transmission-Sig":  []string{"bad_sig"},
+		"Paypal-Cert-Url":          []string{"https://cert.example.com/cert"},
+		"Paypal-Auth-Algo":         []string{"SHA256withRSA"},
+		"Paypal-Transmission-Time": []string{"2024-01-01T00:00:00Z"},
+	}
+	_, err := p.VerifyWebhook(context.Background(), []byte(`{}`), headers)
 	if err == nil {
 		t.Error("expected error for failed verification")
+	}
+}
+
+// TestPayPalWebhookVerify_BugProof_RequestBody proves the existing bug:
+// transmission_id and transmission_sig are both set to the same value,
+// cert_url is empty, and webhook_id is empty.
+// These assertions FAIL before the fix and PASS after.
+func TestPayPalWebhookVerify_BugProof_RequestBody(t *testing.T) {
+	var capturedBody map[string]any
+
+	p, _ := newTestPayPalProvider(t, paypalTokenHandler(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/notifications/verify-webhook-signature" {
+			raw, _ := io.ReadAll(r.Body)
+			json.Unmarshal(raw, &capturedBody)
+			json.NewEncoder(w).Encode(map[string]any{"verification_status": "SUCCESS"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	p.webhookID = "configured-wh-id"
+	headers := http.Header{
+		"Paypal-Transmission-Id":   []string{"txn-id-123"},
+		"Paypal-Transmission-Sig":  []string{"sig-abc"},
+		"Paypal-Cert-Url":          []string{"https://api.paypal.com/v1/notifications/certs/cert_key"},
+		"Paypal-Auth-Algo":         []string{"SHA256withRSA"},
+		"Paypal-Transmission-Time": []string{"2024-01-01T00:00:00Z"},
+	}
+	payload := []byte(`{"id":"WH_1","event_type":"PAYMENT.CAPTURE.COMPLETED","resource":{}}`)
+	_, err := p.VerifyWebhook(context.Background(), payload, headers)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if capturedBody == nil {
+		t.Fatal("no request body captured")
+	}
+	txnID, _ := capturedBody["transmission_id"].(string)
+	txnSig, _ := capturedBody["transmission_sig"].(string)
+	if txnID == txnSig {
+		t.Errorf("BUG: transmission_id == transmission_sig (%q); they must be distinct fields", txnID)
+	}
+	certURL, _ := capturedBody["cert_url"].(string)
+	if certURL == "" {
+		t.Error("BUG: cert_url is empty; it must be set from PayPal-Cert-Url header")
+	}
+	webhookID, _ := capturedBody["webhook_id"].(string)
+	if webhookID == "" {
+		t.Error("BUG: webhook_id is empty; it must be set from provider config")
+	}
+}
+
+// TestPayPalWebhookVerify_CorrectFields verifies the fixed behavior:
+// each PayPal header maps to the correct request body field, webhook_id comes
+// from provider config, and SUCCESS / FAILURE responses are handled correctly.
+func TestPayPalWebhookVerify_CorrectFields(t *testing.T) {
+	var capturedBody map[string]any
+
+	p, _ := newTestPayPalProvider(t, paypalTokenHandler(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/notifications/verify-webhook-signature" {
+			raw, _ := io.ReadAll(r.Body)
+			json.Unmarshal(raw, &capturedBody)
+			json.NewEncoder(w).Encode(map[string]any{"verification_status": "SUCCESS"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	// Set a webhook_id on the provider (simulating config).
+	p.webhookID = "configured-webhook-id"
+
+	headers := http.Header{
+		"Paypal-Transmission-Id":   []string{"txn-id-123"},
+		"Paypal-Transmission-Sig":  []string{"sig-abc"},
+		"Paypal-Cert-Url":          []string{"https://api.paypal.com/v1/notifications/certs/cert_key"},
+		"Paypal-Auth-Algo":         []string{"SHA256withRSA"},
+		"Paypal-Transmission-Time": []string{"2024-01-01T00:00:00Z"},
+	}
+	payload := []byte(`{"id":"WH_2","event_type":"PAYMENT.CAPTURE.COMPLETED","resource":{}}`)
+
+	event, err := p.VerifyWebhook(context.Background(), payload, headers)
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+	if event.Type != "PAYMENT.CAPTURE.COMPLETED" {
+		t.Errorf("expected PAYMENT.CAPTURE.COMPLETED, got %s", event.Type)
+	}
+
+	// Verify distinct field mapping.
+	if got := capturedBody["transmission_id"]; got != "txn-id-123" {
+		t.Errorf("transmission_id: want txn-id-123, got %v", got)
+	}
+	if got := capturedBody["transmission_sig"]; got != "sig-abc" {
+		t.Errorf("transmission_sig: want sig-abc, got %v", got)
+	}
+	if got := capturedBody["cert_url"]; got != "https://api.paypal.com/v1/notifications/certs/cert_key" {
+		t.Errorf("cert_url: want cert URL, got %v", got)
+	}
+	if got := capturedBody["auth_algo"]; got != "SHA256withRSA" {
+		t.Errorf("auth_algo: want SHA256withRSA, got %v", got)
+	}
+	if got := capturedBody["transmission_time"]; got != "2024-01-01T00:00:00Z" {
+		t.Errorf("transmission_time: want 2024-01-01T00:00:00Z, got %v", got)
+	}
+	if got := capturedBody["webhook_id"]; got != "configured-webhook-id" {
+		t.Errorf("webhook_id: want configured-webhook-id, got %v", got)
+	}
+}
+
+func TestPayPalWebhookVerify_FailureStatus(t *testing.T) {
+	p, _ := newTestPayPalProvider(t, paypalTokenHandler(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/notifications/verify-webhook-signature" {
+			json.NewEncoder(w).Encode(map[string]any{"verification_status": "FAILURE"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	p.webhookID = "wh-id"
+
+	headers := http.Header{
+		"Paypal-Transmission-Id":   []string{"txn-id"},
+		"Paypal-Transmission-Sig":  []string{"bad-sig"},
+		"Paypal-Cert-Url":          []string{"https://cert.example.com/cert"},
+		"Paypal-Auth-Algo":         []string{"SHA256withRSA"},
+		"Paypal-Transmission-Time": []string{"2024-01-01T00:00:00Z"},
+	}
+	_, err := p.VerifyWebhook(context.Background(), []byte(`{}`), headers)
+	if err != payments.ErrWebhookInvalid {
+		t.Errorf("expected ErrWebhookInvalid, got %v", err)
 	}
 }
 

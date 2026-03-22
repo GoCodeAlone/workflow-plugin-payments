@@ -250,7 +250,8 @@ func TestStripeVerifyWebhook_Valid(t *testing.T) {
 	sigHeader := buildStripeSignatureHeader(payload, ts, secret)
 
 	p := &stripeProvider{secretKey: "sk_test", webhookSecret: secret}
-	event, err := p.VerifyWebhook(context.Background(), payload, sigHeader)
+	headers := http.Header{"Stripe-Signature": []string{sigHeader}}
+	event, err := p.VerifyWebhook(context.Background(), payload, headers)
 	if err != nil {
 		t.Fatalf("expected valid webhook, got: %v", err)
 	}
@@ -261,7 +262,8 @@ func TestStripeVerifyWebhook_Valid(t *testing.T) {
 
 func TestStripeVerifyWebhook_Invalid(t *testing.T) {
 	p := &stripeProvider{secretKey: "sk_test", webhookSecret: "whsec_real"}
-	_, err := p.VerifyWebhook(context.Background(), []byte(`{}`), "t=1234,v1=badsig")
+	headers := http.Header{"Stripe-Signature": []string{"t=1234,v1=badsig"}}
+	_, err := p.VerifyWebhook(context.Background(), []byte(`{}`), headers)
 	if err == nil {
 		t.Error("expected error for invalid webhook")
 	}

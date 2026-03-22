@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/GoCodeAlone/workflow-plugin-payments/payments"
@@ -166,7 +167,7 @@ func (m *mockProvider) CreatePortalSession(_ context.Context, customerID, return
 	return sess, nil
 }
 
-func (m *mockProvider) VerifyWebhook(_ context.Context, payload []byte, signature string) (*payments.WebhookEvent, error) {
+func (m *mockProvider) VerifyWebhook(_ context.Context, payload []byte, _ http.Header) (*payments.WebhookEvent, error) {
 	if m.webhookErr != nil {
 		return nil, m.webhookErr
 	}

@@ -1,6 +1,9 @@
 package payments
 
-import "context"
+import (
+	"context"
+	"net/http"
+)
 
 // PaymentProvider is the unified interface all payment providers must implement.
 type PaymentProvider interface {
@@ -27,7 +30,9 @@ type PaymentProvider interface {
 	CreatePortalSession(ctx context.Context, customerID, returnURL string) (*PortalSession, error)
 
 	// VerifyWebhook validates an inbound webhook payload and returns the parsed event.
-	VerifyWebhook(ctx context.Context, payload []byte, signature string) (*WebhookEvent, error)
+	// headers should contain the provider-specific signature headers (e.g. Stripe-Signature,
+	// PayPal-Transmission-Id, PayPal-Transmission-Sig, etc.).
+	VerifyWebhook(ctx context.Context, payload []byte, headers http.Header) (*WebhookEvent, error)
 
 	// CreateTransfer initiates a platform-level transfer to a connected account.
 	CreateTransfer(ctx context.Context, p TransferParams) (*Transfer, error)

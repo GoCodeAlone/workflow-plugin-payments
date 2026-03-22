@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/http"
 
 	"github.com/GoCodeAlone/workflow-plugin-payments/payments"
 	stripe "github.com/stripe/stripe-go/v82"
@@ -309,11 +310,11 @@ func (p *stripeProvider) CreatePortalSession(_ context.Context, customerID, retu
 	}, nil
 }
 
-func (p *stripeProvider) VerifyWebhook(_ context.Context, payload []byte, signature string) (*payments.WebhookEvent, error) {
+func (p *stripeProvider) VerifyWebhook(_ context.Context, payload []byte, headers http.Header) (*payments.WebhookEvent, error) {
 	if p.webhookSecret == "" {
 		return nil, fmt.Errorf("stripe VerifyWebhook: webhookSecret not configured")
 	}
-	event, err := webhook.ConstructEventWithOptions(payload, signature, p.webhookSecret, webhook.ConstructEventOptions{
+	event, err := webhook.ConstructEventWithOptions(payload, headers.Get("Stripe-Signature"), p.webhookSecret, webhook.ConstructEventOptions{
 		IgnoreAPIVersionMismatch: true,
 	})
 	if err != nil {

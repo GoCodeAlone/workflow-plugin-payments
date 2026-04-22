@@ -7,6 +7,10 @@ import (
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 )
 
+// Version is set at build time via -ldflags
+// "-X github.com/GoCodeAlone/workflow-plugin-payments/internal.Version=X.Y.Z"
+var Version = "dev"
+
 // paymentsPlugin implements sdk.PluginProvider, sdk.ModuleProvider, and sdk.StepProvider.
 type paymentsPlugin struct{}
 
@@ -19,7 +23,7 @@ func NewPaymentsPlugin() sdk.PluginProvider {
 func (p *paymentsPlugin) Manifest() sdk.PluginManifest {
 	return sdk.PluginManifest{
 		Name:        "workflow-plugin-payments",
-		Version:     "0.1.0",
+		Version:     Version,
 		Author:      "GoCodeAlone",
 		Description: "Multi-provider payment processing plugin (Stripe, PayPal)",
 	}

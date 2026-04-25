@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -355,7 +356,7 @@ func TestStripeAPICallWithEmptySecretKey(t *testing.T) {
 			if err == nil {
 				t.Fatalf("%s: expected errStripeKeyMissing, got nil", tc.name)
 			}
-			if err != errStripeKeyMissing {
+			if !errors.Is(err, errStripeKeyMissing) {
 				t.Fatalf("%s: expected errStripeKeyMissing, got: %v", tc.name, err)
 			}
 		})

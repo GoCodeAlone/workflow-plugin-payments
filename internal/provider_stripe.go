@@ -23,8 +23,9 @@ import (
 	"github.com/stripe/stripe-go/v82/webhook"
 )
 
-// errStripeKeyMissing is returned by API-call methods when secretKey was not
-// provided at init. Callers can check against this value with errors.Is.
+// errStripeKeyMissing is returned by API-call methods that require secretKey
+// when it was not provided at init. It is package-internal; tests reference
+// the sentinel directly via errors.Is within this package.
 var errStripeKeyMissing = errors.New("stripe provider not configured: secretKey missing — set STRIPE_SECRET_KEY env var")
 
 // stripeProvider implements payments.PaymentProvider using the Stripe API.
@@ -38,9 +39,10 @@ type stripeProvider struct {
 // newStripeProvider creates a Stripe provider from config.
 // secretKey is intentionally optional at init (deferred-config-init pattern):
 // the provider initialises successfully with an empty key and returns
-// errStripeKeyMissing on any API call.  Callers must supply secretKey before
-// making live API requests.  This is a stopgap; the proper fix is setting
-// the STRIPE_SECRET_KEY environment variable on the deployment.
+// errStripeKeyMissing on Stripe API calls that require secretKey.  Callers
+// must supply secretKey before making live API requests.  This is a stopgap;
+// the proper fix is setting the STRIPE_SECRET_KEY environment variable on
+// the deployment.
 func newStripeProvider(config map[string]any) (*stripeProvider, error) {
 	secretKey, _ := config["secretKey"].(string)
 	if secretKey == "" {

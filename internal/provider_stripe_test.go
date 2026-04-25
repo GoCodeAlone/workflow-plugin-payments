@@ -268,3 +268,96 @@ func TestStripeVerifyWebhook_Invalid(t *testing.T) {
 		t.Error("expected error for invalid webhook")
 	}
 }
+
+// TestStripeInitEmptySecretKey verifies that newStripeProvider succeeds when
+// secretKey is absent (deferred-config-init pattern).
+func TestStripeInitEmptySecretKey(t *testing.T) {
+	p, err := newStripeProvider(map[string]any{})
+	if err != nil {
+		t.Fatalf("expected init to succeed with empty secretKey, got: %v", err)
+	}
+	if p == nil {
+		t.Fatal("expected non-nil provider")
+	}
+}
+
+// TestStripeAPICallWithEmptySecretKey verifies that each API-call method
+// returns errStripeKeyMissing when secretKey was not supplied at init.
+func TestStripeAPICallWithEmptySecretKey(t *testing.T) {
+	p := &stripeProvider{defaultCurrency: "usd"} // secretKey intentionally empty
+	ctx := context.Background()
+
+	cases := []struct {
+		name string
+		call func() error
+	}{
+		{"CreateCharge", func() error {
+			_, err := p.CreateCharge(ctx, payments.ChargeParams{Amount: 100})
+			return err
+		}},
+		{"CaptureCharge", func() error {
+			_, err := p.CaptureCharge(ctx, "pi_test", 0)
+			return err
+		}},
+		{"RefundCharge", func() error {
+			_, err := p.RefundCharge(ctx, payments.RefundParams{ChargeID: "pi_test"})
+			return err
+		}},
+		{"EnsureCustomer", func() error {
+			_, err := p.EnsureCustomer(ctx, payments.CustomerParams{Email: "a@b.com"})
+			return err
+		}},
+		{"CreateSubscription", func() error {
+			_, err := p.CreateSubscription(ctx, payments.SubscriptionParams{})
+			return err
+		}},
+		{"CancelSubscription", func() error {
+			_, err := p.CancelSubscription(ctx, "sub_test", false)
+			return err
+		}},
+		{"UpdateSubscription", func() error {
+			_, err := p.UpdateSubscription(ctx, "sub_test", payments.SubscriptionUpdateParams{})
+			return err
+		}},
+		{"CreateCheckoutSession", func() error {
+			_, err := p.CreateCheckoutSession(ctx, payments.CheckoutParams{})
+			return err
+		}},
+		{"CreatePortalSession", func() error {
+			_, err := p.CreatePortalSession(ctx, "cus_test", "https://example.com")
+			return err
+		}},
+		{"CreateTransfer", func() error {
+			_, err := p.CreateTransfer(ctx, payments.TransferParams{})
+			return err
+		}},
+		{"CreatePayout", func() error {
+			_, err := p.CreatePayout(ctx, payments.PayoutParams{})
+			return err
+		}},
+		{"ListInvoices", func() error {
+			_, err := p.ListInvoices(ctx, payments.InvoiceListParams{})
+			return err
+		}},
+		{"AttachPaymentMethod", func() error {
+			_, err := p.AttachPaymentMethod(ctx, "cus_test", "pm_test")
+			return err
+		}},
+		{"ListPaymentMethods", func() error {
+			_, err := p.ListPaymentMethods(ctx, "cus_test", "card")
+			return err
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.call()
+			if err == nil {
+				t.Fatalf("%s: expected errStripeKeyMissing, got nil", tc.name)
+			}
+			if err != errStripeKeyMissing {
+				t.Fatalf("%s: expected errStripeKeyMissing, got: %v", tc.name, err)
+			}
+		})
+	}
+}

@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 
@@ -21,6 +22,10 @@ import (
 	"github.com/stripe/stripe-go/v82/webhook"
 )
 
+// errStripeKeyMissing aliases the exported payments.ErrStripeKeyMissing for
+// internal use, so callers outside this package can also check it via errors.Is.
+var errStripeKeyMissing = payments.ErrStripeKeyMissing
+
 // stripeProvider implements payments.PaymentProvider using the Stripe API.
 type stripeProvider struct {
 	secretKey       string
@@ -29,13 +34,20 @@ type stripeProvider struct {
 	backends        stripe.Backends // nil = use stripe global defaults
 }
 
+// newStripeProvider creates a Stripe provider from config.
+// secretKey is intentionally optional at init (deferred-config-init pattern):
+// the provider initialises successfully with an empty key and returns
+// payments.ErrStripeKeyMissing on Stripe API calls that require secretKey.
+// Callers must supply secretKey before making live API requests.  This is a
+// stopgap; the proper fix is setting the STRIPE_SECRET_KEY env var on the
+// deployment.
 func newStripeProvider(config map[string]any) (*stripeProvider, error) {
 	secretKey, _ := config["secretKey"].(string)
 	if secretKey == "" {
 		secretKey, _ = config["secret_key"].(string)
 	}
 	if secretKey == "" {
-		return nil, fmt.Errorf("stripe provider: secretKey is required")
+		log.Printf("[WARN] stripe provider configured without secretKey — payment API calls will fail until set")
 	}
 	webhookSecret, _ := config["webhookSecret"].(string)
 	if webhookSecret == "" {
@@ -67,6 +79,15 @@ func (p *stripeProvider) setKey() {
 	stripe.Key = p.secretKey
 }
 
+// checkKey returns payments.ErrStripeKeyMissing if the provider was initialised
+// without a secretKey.  Every API-call method calls this before touching the Stripe SDK.
+func (p *stripeProvider) checkKey() error {
+	if p.secretKey == "" {
+		return errStripeKeyMissing
+	}
+	return nil
+}
+
 // backendFor returns the configured backend for the given API, or nil to use default.
 func (p *stripeProvider) backendFor(api stripe.SupportedBackend) stripe.Backend {
 	if p.backends.API != nil && api == stripe.APIBackend {
@@ -76,6 +97,9 @@ func (p *stripeProvider) backendFor(api stripe.SupportedBackend) stripe.Backend 
 }
 
 func (p *stripeProvider) CreateCharge(ctx context.Context, cp payments.ChargeParams) (*payments.Charge, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	currency := cp.Currency
 	if currency == "" {
@@ -113,6 +137,9 @@ func (p *stripeProvider) CreateCharge(ctx context.Context, cp payments.ChargePar
 }
 
 func (p *stripeProvider) CaptureCharge(_ context.Context, chargeID string, amount int64) (*payments.Charge, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	params := &stripe.PaymentIntentCaptureParams{}
 	if amount > 0 {
@@ -130,6 +157,9 @@ func (p *stripeProvider) CaptureCharge(_ context.Context, chargeID string, amoun
 }
 
 func (p *stripeProvider) RefundCharge(_ context.Context, rp payments.RefundParams) (*payments.Refund, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	params := &stripe.RefundParams{
 		PaymentIntent: stripe.String(rp.ChargeID),
@@ -152,6 +182,9 @@ func (p *stripeProvider) RefundCharge(_ context.Context, rp payments.RefundParam
 }
 
 func (p *stripeProvider) EnsureCustomer(_ context.Context, cp payments.CustomerParams) (*payments.Customer, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	// Search for existing customer by email.
 	listParams := &stripe.CustomerListParams{}
@@ -190,6 +223,9 @@ func (p *stripeProvider) EnsureCustomer(_ context.Context, cp payments.CustomerP
 }
 
 func (p *stripeProvider) CreateSubscription(_ context.Context, sp payments.SubscriptionParams) (*payments.Subscription, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	params := &stripe.SubscriptionParams{
 		Customer: stripe.String(sp.CustomerID),
@@ -211,6 +247,9 @@ func (p *stripeProvider) CreateSubscription(_ context.Context, sp payments.Subsc
 }
 
 func (p *stripeProvider) CancelSubscription(_ context.Context, subscriptionID string, cancelAtPeriodEnd bool) (*payments.Subscription, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	if cancelAtPeriodEnd {
 		params := &stripe.SubscriptionParams{
@@ -236,6 +275,9 @@ func (p *stripeProvider) CancelSubscription(_ context.Context, subscriptionID st
 }
 
 func (p *stripeProvider) UpdateSubscription(_ context.Context, subscriptionID string, up payments.SubscriptionUpdateParams) (*payments.Subscription, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	params := &stripe.SubscriptionParams{}
 	if up.PriceID != "" {
@@ -267,6 +309,9 @@ func (p *stripeProvider) UpdateSubscription(_ context.Context, subscriptionID st
 }
 
 func (p *stripeProvider) CreateCheckoutSession(_ context.Context, cp payments.CheckoutParams) (*payments.CheckoutSession, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	mode := cp.Mode
 	if mode == "" {
@@ -295,6 +340,9 @@ func (p *stripeProvider) CreateCheckoutSession(_ context.Context, cp payments.Ch
 }
 
 func (p *stripeProvider) CreatePortalSession(_ context.Context, customerID, returnURL string) (*payments.PortalSession, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	params := &stripe.BillingPortalSessionParams{
 		Customer:  stripe.String(customerID),
@@ -330,6 +378,9 @@ func (p *stripeProvider) VerifyWebhook(_ context.Context, payload []byte, header
 }
 
 func (p *stripeProvider) CreateTransfer(_ context.Context, tp payments.TransferParams) (*payments.Transfer, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	params := &stripe.TransferParams{
 		Amount:      stripe.Int64(tp.Amount),
@@ -353,6 +404,9 @@ func (p *stripeProvider) CreateTransfer(_ context.Context, tp payments.TransferP
 }
 
 func (p *stripeProvider) CreatePayout(_ context.Context, pp payments.PayoutParams) (*payments.Payout, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	params := &stripe.PayoutParams{
 		Amount:      stripe.Int64(pp.Amount),
@@ -373,6 +427,9 @@ func (p *stripeProvider) CreatePayout(_ context.Context, pp payments.PayoutParam
 }
 
 func (p *stripeProvider) ListInvoices(_ context.Context, lp payments.InvoiceListParams) ([]*payments.Invoice, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	params := &stripe.InvoiceListParams{}
 	if lp.CustomerID != "" {
@@ -409,6 +466,9 @@ func (p *stripeProvider) ListInvoices(_ context.Context, lp payments.InvoiceList
 }
 
 func (p *stripeProvider) AttachPaymentMethod(_ context.Context, customerID, paymentMethodID string) (*payments.PaymentMethod, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	params := &stripe.PaymentMethodAttachParams{
 		Customer: stripe.String(customerID),
@@ -425,6 +485,9 @@ func (p *stripeProvider) AttachPaymentMethod(_ context.Context, customerID, paym
 }
 
 func (p *stripeProvider) ListPaymentMethods(_ context.Context, customerID, pmType string) ([]*payments.PaymentMethod, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
 	p.setKey()
 	params := &stripe.PaymentMethodListParams{
 		Customer: stripe.String(customerID),

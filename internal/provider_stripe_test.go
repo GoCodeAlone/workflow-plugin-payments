@@ -354,10 +354,10 @@ func TestStripeAPICallWithEmptySecretKey(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := tc.call()
 			if err == nil {
-				t.Fatalf("%s: expected errStripeKeyMissing, got nil", tc.name)
+				t.Fatalf("%s: expected payments.ErrStripeKeyMissing, got nil", tc.name)
 			}
-			if !errors.Is(err, errStripeKeyMissing) {
-				t.Fatalf("%s: expected errStripeKeyMissing, got: %v", tc.name, err)
+			if !errors.Is(err, payments.ErrStripeKeyMissing) {
+				t.Fatalf("%s: expected payments.ErrStripeKeyMissing, got: %v", tc.name, err)
 			}
 		})
 	}

@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -23,10 +22,9 @@ import (
 	"github.com/stripe/stripe-go/v82/webhook"
 )
 
-// errStripeKeyMissing is returned by API-call methods that require secretKey
-// when it was not provided at init. It is package-internal; tests reference
-// the sentinel directly via errors.Is within this package.
-var errStripeKeyMissing = errors.New("stripe provider not configured: secretKey missing — set STRIPE_SECRET_KEY env var")
+// errStripeKeyMissing aliases the exported payments.ErrStripeKeyMissing for
+// internal use, so callers outside this package can also check it via errors.Is.
+var errStripeKeyMissing = payments.ErrStripeKeyMissing
 
 // stripeProvider implements payments.PaymentProvider using the Stripe API.
 type stripeProvider struct {
@@ -39,10 +37,10 @@ type stripeProvider struct {
 // newStripeProvider creates a Stripe provider from config.
 // secretKey is intentionally optional at init (deferred-config-init pattern):
 // the provider initialises successfully with an empty key and returns
-// errStripeKeyMissing on Stripe API calls that require secretKey.  Callers
-// must supply secretKey before making live API requests.  This is a stopgap;
-// the proper fix is setting the STRIPE_SECRET_KEY environment variable on
-// the deployment.
+// payments.ErrStripeKeyMissing on Stripe API calls that require secretKey.
+// Callers must supply secretKey before making live API requests.  This is a
+// stopgap; the proper fix is setting the STRIPE_SECRET_KEY env var on the
+// deployment.
 func newStripeProvider(config map[string]any) (*stripeProvider, error) {
 	secretKey, _ := config["secretKey"].(string)
 	if secretKey == "" {
@@ -81,8 +79,8 @@ func (p *stripeProvider) setKey() {
 	stripe.Key = p.secretKey
 }
 
-// checkKey returns errStripeKeyMissing if the provider was initialised without
-// a secretKey.  Every API-call method calls this before touching the Stripe SDK.
+// checkKey returns payments.ErrStripeKeyMissing if the provider was initialised
+// without a secretKey.  Every API-call method calls this before touching the Stripe SDK.
 func (p *stripeProvider) checkKey() error {
 	if p.secretKey == "" {
 		return errStripeKeyMissing

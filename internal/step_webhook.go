@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
@@ -72,10 +71,10 @@ func (s *webhookStep) Execute(ctx context.Context, _ map[string]any, _ map[strin
 		return &sdk.StepResult{Output: map[string]any{"error": err.Error()}}, nil
 	}
 
-	dataJSON, _ := json.Marshal(event.Data)
 	return &sdk.StepResult{Output: map[string]any{
 		"event_type": event.Type,
 		"event_id":   event.ID,
-		"data":       string(dataJSON),
+		"data":       event.Data,
+		"metadata":   event.Metadata,
 	}}, nil
 }

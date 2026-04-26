@@ -246,7 +246,7 @@ func TestStripeCalculateFees(t *testing.T) {
 
 func TestStripeVerifyWebhook_Valid(t *testing.T) {
 	secret := "whsec_test123"
-	payload := []byte(`{"id":"evt_1","type":"payment_intent.succeeded","data":{"object":{}}}`)
+	payload := []byte(`{"id":"evt_1","type":"payment_intent.succeeded","data":{"object":{"id":"pi_123","amount_received":2500,"metadata":{"wishlist_id":"wish_123"}}}}`)
 	ts := time.Now().Unix()
 	sigHeader := buildStripeSignatureHeader(payload, ts, secret)
 
@@ -258,6 +258,12 @@ func TestStripeVerifyWebhook_Valid(t *testing.T) {
 	}
 	if event.Type != "payment_intent.succeeded" {
 		t.Errorf("expected payment_intent.succeeded, got %s", event.Type)
+	}
+	if event.Data["id"] != "pi_123" {
+		t.Fatalf("expected payment object data to be flattened, got %#v", event.Data)
+	}
+	if event.Metadata["wishlist_id"] != "wish_123" {
+		t.Fatalf("expected payment object metadata, got %#v", event.Metadata)
 	}
 }
 

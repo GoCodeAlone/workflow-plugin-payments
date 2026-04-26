@@ -11,19 +11,19 @@ import (
 
 // mockProvider is an in-memory PaymentProvider for testing.
 type mockProvider struct {
-	mu          sync.Mutex
-	charges     map[string]*payments.Charge
-	refunds     map[string]*payments.Refund
-	customers   map[string]*payments.Customer
-	subs        map[string]*payments.Subscription
-	sessions    map[string]*payments.CheckoutSession
-	portals     map[string]*payments.PortalSession
-	transfers   map[string]*payments.Transfer
-	payouts     map[string]*payments.Payout
-	invoices    []*payments.Invoice
-	pmethods    map[string]*payments.PaymentMethod
-	webhookErr  error
-	counter     int
+	mu         sync.Mutex
+	charges    map[string]*payments.Charge
+	refunds    map[string]*payments.Refund
+	customers  map[string]*payments.Customer
+	subs       map[string]*payments.Subscription
+	sessions   map[string]*payments.CheckoutSession
+	portals    map[string]*payments.PortalSession
+	transfers  map[string]*payments.Transfer
+	payouts    map[string]*payments.Payout
+	invoices   []*payments.Invoice
+	pmethods   map[string]*payments.PaymentMethod
+	webhookErr error
+	counter    int
 }
 
 func newMockProvider() *mockProvider {
@@ -174,7 +174,11 @@ func (m *mockProvider) VerifyWebhook(_ context.Context, payload []byte, _ http.H
 	return &payments.WebhookEvent{
 		ID:   m.nextID("evt"),
 		Type: "payment_intent.succeeded",
-		Data: map[string]any{"raw": string(payload)},
+		Data: map[string]any{
+			"id":  "pi_mock",
+			"raw": string(payload),
+		},
+		Metadata: map[string]string{"wishlist_id": "wishlist_mock"},
 	}, nil
 }
 

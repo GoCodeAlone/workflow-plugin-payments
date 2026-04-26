@@ -70,6 +70,20 @@ func TestWebhookStep_Valid(t *testing.T) {
 	if result.Output["event_type"] == "" {
 		t.Error("expected event_type")
 	}
+	data, ok := result.Output["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured webhook data map, got %T", result.Output["data"])
+	}
+	if data["id"] != "pi_mock" {
+		t.Fatalf("expected verified payment object id pi_mock, got %v", data["id"])
+	}
+	metadata, ok := result.Output["metadata"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected webhook metadata map, got %T", result.Output["metadata"])
+	}
+	if metadata["wishlist_id"] != "wishlist_mock" {
+		t.Fatalf("expected wishlist metadata, got %v", metadata["wishlist_id"])
+	}
 }
 
 func TestWebhookStep_InvalidSignature(t *testing.T) {

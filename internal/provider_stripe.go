@@ -368,13 +368,27 @@ func (p *stripeProvider) VerifyWebhook(_ context.Context, payload []byte, header
 	if err != nil {
 		return nil, payments.ErrWebhookInvalid
 	}
+	data := event.Data.Object
 	return &payments.WebhookEvent{
-		ID:   event.ID,
-		Type: string(event.Type),
-		Data: map[string]any{
-			"object": event.Data.Object,
-		},
+		ID:       event.ID,
+		Type:     string(event.Type),
+		Data:     data,
+		Metadata: stripeMetadata(data),
 	}, nil
+}
+
+func stripeMetadata(data map[string]any) map[string]string {
+	raw, ok := data["metadata"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	metadata := make(map[string]string, len(raw))
+	for key, value := range raw {
+		if str, ok := value.(string); ok {
+			metadata[key] = str
+		}
+	}
+	return metadata
 }
 
 func (p *stripeProvider) CreateTransfer(_ context.Context, tp payments.TransferParams) (*payments.Transfer, error) {

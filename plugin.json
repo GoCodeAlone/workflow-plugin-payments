@@ -11,27 +11,292 @@
     "keywords": ["payments", "stripe", "paypal", "billing", "checkout", "subscriptions"],
     "homepage": "https://github.com/GoCodeAlone/workflow-plugin-payments",
     "repository": "https://github.com/GoCodeAlone/workflow-plugin-payments",
-    "capabilities": {
-        "configProvider": false,
-        "moduleTypes": ["payments.provider"],
-        "stepTypes": [
-            "step.payment_charge",
-            "step.payment_capture",
-            "step.payment_refund",
-            "step.payment_fee_calculate",
-            "step.payment_customer_ensure",
-            "step.payment_subscription_create",
-            "step.payment_subscription_update",
-            "step.payment_subscription_cancel",
-            "step.payment_checkout_create",
-            "step.payment_portal_create",
-            "step.payment_webhook_verify",
-            "step.payment_transfer",
-            "step.payment_payout",
-            "step.payment_invoice_list",
-            "step.payment_method_attach",
-            "step.payment_method_list"
-        ],
-        "triggerTypes": []
-    }
+    "moduleTypes": ["payments.provider"],
+    "stepTypes": [
+        "step.payment_charge",
+        "step.payment_capture",
+        "step.payment_refund",
+        "step.payment_fee_calculate",
+        "step.payment_customer_ensure",
+        "step.payment_subscription_create",
+        "step.payment_subscription_update",
+        "step.payment_subscription_cancel",
+        "step.payment_checkout_create",
+        "step.payment_portal_create",
+        "step.payment_webhook_verify",
+        "step.payment_transfer",
+        "step.payment_payout",
+        "step.payment_invoice_list",
+        "step.payment_method_attach",
+        "step.payment_method_list"
+    ],
+    "triggerTypes": [],
+    "stepSchemas": [
+        {
+            "type": "step.payment_charge",
+            "plugin": "workflow-plugin-payments",
+            "description": "Creates a payment charge (PaymentIntent) via the configured payment provider. Supports automatic and manual capture.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "amount", "label": "Amount (cents)", "type": "number", "required": true, "description": "Charge amount in the smallest currency unit (e.g. cents for USD)"},
+                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code (e.g. usd). Falls back to provider default.", "placeholder": "usd"},
+                {"key": "customer_id", "label": "Customer ID", "type": "string", "description": "Provider customer ID to attach the charge to"},
+                {"key": "capture_method", "label": "Capture Method", "type": "select", "options": ["automatic", "manual"], "defaultValue": "automatic", "description": "Whether to capture funds immediately (automatic) or hold for manual capture later"},
+                {"key": "description", "label": "Description", "type": "string", "description": "Optional description attached to the charge"}
+            ],
+            "outputs": [
+                {"key": "charge_id", "type": "string", "description": "Provider-assigned charge/PaymentIntent ID"},
+                {"key": "client_secret", "type": "string", "description": "Client secret for client-side confirmation (Stripe only)"},
+                {"key": "status", "type": "string", "description": "Charge status (e.g. requires_payment_method, succeeded)"},
+                {"key": "amount", "type": "number", "description": "Confirmed charge amount in smallest currency unit"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_capture",
+            "plugin": "workflow-plugin-payments",
+            "description": "Captures a previously authorised charge that was created with capture_method=manual.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "charge_id", "label": "Charge ID", "type": "string", "required": true, "description": "The charge/PaymentIntent ID to capture"},
+                {"key": "amount", "label": "Capture Amount (cents)", "type": "number", "description": "Amount to capture. Defaults to full authorised amount when omitted."}
+            ],
+            "outputs": [
+                {"key": "status", "type": "string", "description": "Charge status after capture"},
+                {"key": "amount", "type": "number", "description": "Captured amount in smallest currency unit"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_refund",
+            "plugin": "workflow-plugin-payments",
+            "description": "Issues a full or partial refund for a completed charge.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "charge_id", "label": "Charge ID", "type": "string", "required": true, "description": "The charge/PaymentIntent ID to refund"},
+                {"key": "amount", "label": "Refund Amount (cents)", "type": "number", "description": "Amount to refund in smallest currency unit. Defaults to full charge amount."},
+                {"key": "reason", "label": "Reason", "type": "string", "description": "Optional refund reason (e.g. duplicate, fraudulent, requested_by_customer)"}
+            ],
+            "outputs": [
+                {"key": "refund_id", "type": "string", "description": "Provider-assigned refund ID"},
+                {"key": "status", "type": "string", "description": "Refund status (e.g. succeeded, pending)"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_fee_calculate",
+            "plugin": "workflow-plugin-payments",
+            "description": "Calculates the fee breakdown for a given amount, returning the net contribution after processing and platform fees.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "amount", "label": "Amount (cents)", "type": "number", "required": true, "description": "Gross amount in smallest currency unit"},
+                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code", "placeholder": "usd"},
+                {"key": "platform_fee_percent", "label": "Platform Fee (%)", "type": "number", "description": "Platform fee percentage (0-100). Defaults to 0.", "defaultValue": 0}
+            ],
+            "outputs": [
+                {"key": "contribution_amount", "type": "number", "description": "Net amount after all fees (in cents)"},
+                {"key": "processing_fee", "type": "number", "description": "Payment processor fee (in cents)"},
+                {"key": "platform_fee", "type": "number", "description": "Platform fee (in cents)"},
+                {"key": "total_charge", "type": "number", "description": "Gross charge amount (in cents)"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_customer_ensure",
+            "plugin": "workflow-plugin-payments",
+            "description": "Looks up an existing customer by email and creates one if not found (idempotent upsert).",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "email", "label": "Email", "type": "string", "required": true, "description": "Customer email address"},
+                {"key": "name", "label": "Name", "type": "string", "description": "Customer full name"}
+            ],
+            "outputs": [
+                {"key": "customer_id", "type": "string", "description": "Provider-assigned customer ID"},
+                {"key": "email", "type": "string", "description": "Customer email address"},
+                {"key": "name", "type": "string", "description": "Customer full name"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_subscription_create",
+            "plugin": "workflow-plugin-payments",
+            "description": "Creates a new recurring subscription for a customer.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "customer_id", "label": "Customer ID", "type": "string", "required": true, "description": "Provider customer ID"},
+                {"key": "price_id", "label": "Price ID", "type": "string", "required": true, "description": "Provider price/plan ID to subscribe to"}
+            ],
+            "outputs": [
+                {"key": "subscription_id", "type": "string", "description": "Provider-assigned subscription ID"},
+                {"key": "status", "type": "string", "description": "Subscription status (e.g. active, trialing, incomplete)"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_subscription_update",
+            "plugin": "workflow-plugin-payments",
+            "description": "Updates an existing subscription, e.g. to change the price/plan.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "subscription_id", "label": "Subscription ID", "type": "string", "required": true, "description": "Provider subscription ID to update"},
+                {"key": "price_id", "label": "New Price ID", "type": "string", "description": "New provider price/plan ID to switch to"}
+            ],
+            "outputs": [
+                {"key": "subscription_id", "type": "string", "description": "Provider-assigned subscription ID"},
+                {"key": "status", "type": "string", "description": "Subscription status after update"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_subscription_cancel",
+            "plugin": "workflow-plugin-payments",
+            "description": "Cancels an active subscription immediately or at the end of the current billing period.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "subscription_id", "label": "Subscription ID", "type": "string", "required": true, "description": "Provider subscription ID to cancel"},
+                {"key": "cancel_at_period_end", "label": "Cancel at Period End", "type": "boolean", "defaultValue": false, "description": "When true, the subscription remains active until the end of the billing period"}
+            ],
+            "outputs": [
+                {"key": "subscription_id", "type": "string", "description": "Provider-assigned subscription ID"},
+                {"key": "status", "type": "string", "description": "Subscription status after cancellation"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_checkout_create",
+            "plugin": "workflow-plugin-payments",
+            "description": "Creates a hosted checkout session URL that redirects the customer to the provider's payment page.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "customer_id", "label": "Customer ID", "type": "string", "description": "Provider customer ID (optional for guest checkout)"},
+                {"key": "price_id", "label": "Price ID", "type": "string", "description": "Provider price/product ID for the checkout item"},
+                {"key": "success_url", "label": "Success URL", "type": "string", "description": "URL to redirect to after successful payment"},
+                {"key": "cancel_url", "label": "Cancel URL", "type": "string", "description": "URL to redirect to when the customer cancels"},
+                {"key": "mode", "label": "Mode", "type": "select", "options": ["subscription", "payment", "setup"], "defaultValue": "subscription", "description": "Checkout session mode"}
+            ],
+            "outputs": [
+                {"key": "url", "type": "string", "description": "Hosted checkout page URL to redirect the customer to"},
+                {"key": "session_id", "type": "string", "description": "Provider-assigned checkout session ID"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_portal_create",
+            "plugin": "workflow-plugin-payments",
+            "description": "Creates a customer billing-portal session URL where the customer can manage their subscriptions and payment methods.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "customer_id", "label": "Customer ID", "type": "string", "required": true, "description": "Provider customer ID"},
+                {"key": "return_url", "label": "Return URL", "type": "string", "description": "URL to redirect to after the customer exits the portal"}
+            ],
+            "outputs": [
+                {"key": "url", "type": "string", "description": "Billing portal URL to redirect the customer to"},
+                {"key": "session_id", "type": "string", "description": "Provider-assigned portal session ID"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_webhook_verify",
+            "plugin": "workflow-plugin-payments",
+            "description": "Validates an inbound webhook payload signature and returns the parsed event. Reads signature headers from the pipeline context or config.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "request_body", "label": "Request Body", "type": "string", "description": "Raw webhook payload body (falls back to current.payload)"},
+                {"key": "Stripe-Signature", "label": "Stripe-Signature Header", "type": "string", "description": "Stripe webhook signature header value"},
+                {"key": "stripe_signature", "label": "Stripe Signature (alias)", "type": "string", "description": "Alternative key for Stripe-Signature"},
+                {"key": "Paypal-Transmission-Id", "label": "PayPal-Transmission-Id Header", "type": "string", "description": "PayPal webhook transmission ID header"},
+                {"key": "Paypal-Transmission-Sig", "label": "PayPal-Transmission-Sig Header", "type": "string", "description": "PayPal webhook signature header"},
+                {"key": "Paypal-Cert-Url", "label": "PayPal-Cert-Url Header", "type": "string", "description": "PayPal webhook certificate URL header"},
+                {"key": "Paypal-Auth-Algo", "label": "PayPal-Auth-Algo Header", "type": "string", "description": "PayPal webhook auth algorithm header"},
+                {"key": "Paypal-Transmission-Time", "label": "PayPal-Transmission-Time Header", "type": "string", "description": "PayPal webhook transmission time header"}
+            ],
+            "outputs": [
+                {"key": "event_type", "type": "string", "description": "Provider event type (e.g. payment_intent.succeeded)"},
+                {"key": "event_id", "type": "string", "description": "Provider-assigned event ID"},
+                {"key": "data", "type": "json", "description": "Parsed event data payload"},
+                {"key": "metadata", "type": "json", "description": "Event metadata map"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_transfer",
+            "plugin": "workflow-plugin-payments",
+            "description": "Initiates a platform-level transfer of funds to a connected account.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "amount", "label": "Amount (cents)", "type": "number", "required": true, "description": "Transfer amount in smallest currency unit"},
+                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code", "placeholder": "usd"},
+                {"key": "destination_account_id", "label": "Destination Account ID", "type": "string", "required": true, "description": "Connected account or PayPal ID to transfer funds to"},
+                {"key": "description", "label": "Description", "type": "string", "description": "Optional transfer description"}
+            ],
+            "outputs": [
+                {"key": "transfer_id", "type": "string", "description": "Provider-assigned transfer ID"},
+                {"key": "status", "type": "string", "description": "Transfer status"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_payout",
+            "plugin": "workflow-plugin-payments",
+            "description": "Initiates a payout of funds to an external bank account.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "amount", "label": "Amount (cents)", "type": "number", "required": true, "description": "Payout amount in smallest currency unit"},
+                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code", "placeholder": "usd"},
+                {"key": "destination_bank_id", "label": "Destination Bank ID", "type": "string", "description": "Bank account or payout destination ID"},
+                {"key": "description", "label": "Description", "type": "string", "description": "Optional payout description"}
+            ],
+            "outputs": [
+                {"key": "payout_id", "type": "string", "description": "Provider-assigned payout ID"},
+                {"key": "status", "type": "string", "description": "Payout status (e.g. paid, pending, in_transit)"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_invoice_list",
+            "plugin": "workflow-plugin-payments",
+            "description": "Lists invoices for a customer, with optional status and limit filters.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "customer_id", "label": "Customer ID", "type": "string", "description": "Provider customer ID to filter invoices by"},
+                {"key": "limit", "label": "Limit", "type": "number", "description": "Maximum number of invoices to return", "defaultValue": 10},
+                {"key": "status", "label": "Status Filter", "type": "string", "description": "Filter by invoice status (e.g. paid, open, draft)"}
+            ],
+            "outputs": [
+                {"key": "invoices", "type": "string", "description": "JSON-encoded array of invoice objects"},
+                {"key": "count", "type": "number", "description": "Number of invoices returned"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_method_attach",
+            "plugin": "workflow-plugin-payments",
+            "description": "Attaches an existing payment method to a customer.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "customer_id", "label": "Customer ID", "type": "string", "required": true, "description": "Provider customer ID"},
+                {"key": "payment_method_id", "label": "Payment Method ID", "type": "string", "required": true, "description": "Provider payment method ID to attach"}
+            ],
+            "outputs": [
+                {"key": "payment_method_id", "type": "string", "description": "Provider-assigned payment method ID"},
+                {"key": "type", "type": "string", "description": "Payment method type (e.g. card, sepa_debit)"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        },
+        {
+            "type": "step.payment_method_list",
+            "plugin": "workflow-plugin-payments",
+            "description": "Lists payment methods attached to a customer, with optional type filter.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "customer_id", "label": "Customer ID", "type": "string", "required": true, "description": "Provider customer ID"},
+                {"key": "type", "label": "Type Filter", "type": "string", "description": "Payment method type to filter by (e.g. card, sepa_debit)"}
+            ],
+            "outputs": [
+                {"key": "payment_methods", "type": "string", "description": "JSON-encoded array of payment method objects"},
+                {"key": "count", "type": "number", "description": "Number of payment methods returned"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+            ]
+        }
+    ]
 }

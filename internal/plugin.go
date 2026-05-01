@@ -7,6 +7,14 @@ import (
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 )
 
+// Compile-time interface checks.
+var (
+	_ sdk.PluginProvider = (*paymentsPlugin)(nil)
+	_ sdk.ModuleProvider = (*paymentsPlugin)(nil)
+	_ sdk.StepProvider   = (*paymentsPlugin)(nil)
+	_ sdk.SchemaProvider = (*paymentsPlugin)(nil)
+)
+
 // Version is set at build time via -ldflags
 // "-X github.com/GoCodeAlone/workflow-plugin-payments/internal.Version=X.Y.Z"
 var Version = "dev"
@@ -67,6 +75,69 @@ func (p *paymentsPlugin) StepTypes() []string {
 		"step.payment_invoice_list",
 		"step.payment_method_attach",
 		"step.payment_method_list",
+	}
+}
+
+// ModuleSchemas returns the schema descriptors for module types provided by this plugin.
+// This implements sdk.SchemaProvider so the host can introspect module configuration
+// fields and service I/O at runtime via gRPC without running the module.
+func (p *paymentsPlugin) ModuleSchemas() []sdk.ModuleSchemaData {
+	return []sdk.ModuleSchemaData{
+		{
+			Type:        "payments.provider",
+			Label:       "Payment Provider",
+			Category:    "payments",
+			Description: "Multi-provider payment processing module (Stripe or PayPal). Configure one per payment processor.",
+			ConfigFields: []sdk.ConfigField{
+				{
+					Name:        "provider",
+					Type:        "select",
+					Description: "Payment provider backend to use",
+					Required:    true,
+					Options:     []string{"stripe", "paypal"},
+				},
+				// --- Stripe fields ---
+				{
+					Name:        "secretKey",
+					Type:        "string",
+					Description: "Stripe secret API key (sk_live_... or sk_test_...)",
+				},
+				{
+					Name:        "webhookSecret",
+					Type:        "string",
+					Description: "Stripe webhook signing secret (whsec_...) used to verify inbound webhook payloads",
+				},
+				{
+					Name:         "defaultCurrency",
+					Type:         "string",
+					Description:  "Default ISO 4217 currency code for Stripe charges when not specified per-step",
+					DefaultValue: "usd",
+				},
+				// --- PayPal fields ---
+				{
+					Name:        "clientId",
+					Type:        "string",
+					Description: "PayPal application client ID",
+				},
+				{
+					Name:        "clientSecret",
+					Type:        "string",
+					Description: "PayPal application client secret",
+				},
+				{
+					Name:         "environment",
+					Type:         "select",
+					Description:  "PayPal API environment",
+					DefaultValue: "sandbox",
+					Options:      []string{"sandbox", "production"},
+				},
+				{
+					Name:        "webhook_id",
+					Type:        "string",
+					Description: "PayPal webhook ID used to verify inbound webhook payloads",
+				},
+			},
+		},
 	}
 }
 

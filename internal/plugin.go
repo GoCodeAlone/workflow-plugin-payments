@@ -132,7 +132,7 @@ func (p *paymentsPlugin) ModuleSchemas() []sdk.ModuleSchemaData {
 					Options:      []string{"sandbox", "production"},
 				},
 				{
-					Name:        "webhook_id",
+					Name:        "webhookId",
 					Type:        "string",
 					Description: "PayPal webhook ID used to verify inbound webhook payloads",
 				},

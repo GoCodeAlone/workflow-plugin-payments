@@ -40,11 +40,13 @@ jobs:
           if [ -n "$RELEASES_TOKEN" ]; then
             git config --global url."https://x-access-token:${RELEASES_TOKEN}@github.com/".insteadOf "https://github.com/"
           fi
-      - name: Verify plugin.json exists
+      - name: Verify plugin contract files exist
         run: |
-          if [ ! -f plugin.json ]; then
-            echo "ERROR: plugin.json is missing" >&2
-            exit 1
-          fi
+          for file in plugin.json plugin.contracts.json; do
+            if [ ! -f "$file" ]; then
+              echo "ERROR: $file is missing" >&2
+              exit 1
+            fi
+          done
       - name: Validate plugin manifest (strict contracts)
         run: go run github.com/GoCodeAlone/workflow/cmd/wfctl@v0.20.1 plugin validate --file plugin.json --strict-contracts

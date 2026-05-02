@@ -49,7 +49,7 @@
                 {"key": "client_secret", "type": "string", "description": "Client secret for client-side confirmation (Stripe only)"},
                 {"key": "status", "type": "string", "description": "Charge status (e.g. requires_payment_method, succeeded)"},
                 {"key": "amount", "type": "number", "description": "Confirmed charge amount in smallest currency unit"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -64,7 +64,7 @@
             "outputs": [
                 {"key": "status", "type": "string", "description": "Charge status after capture"},
                 {"key": "amount", "type": "number", "description": "Captured amount in smallest currency unit"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -80,7 +80,7 @@
             "outputs": [
                 {"key": "refund_id", "type": "string", "description": "Provider-assigned refund ID"},
                 {"key": "status", "type": "string", "description": "Refund status (e.g. succeeded, pending)"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -98,7 +98,7 @@
                 {"key": "processing_fee", "type": "number", "description": "Payment processor fee (in cents)"},
                 {"key": "platform_fee", "type": "number", "description": "Platform fee (in cents)"},
                 {"key": "total_charge", "type": "number", "description": "Gross charge amount (in cents)"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -114,7 +114,7 @@
                 {"key": "customer_id", "type": "string", "description": "Provider-assigned customer ID"},
                 {"key": "email", "type": "string", "description": "Customer email address"},
                 {"key": "name", "type": "string", "description": "Customer full name"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -129,7 +129,7 @@
             "outputs": [
                 {"key": "subscription_id", "type": "string", "description": "Provider-assigned subscription ID"},
                 {"key": "status", "type": "string", "description": "Subscription status (e.g. active, trialing, incomplete)"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -144,7 +144,7 @@
             "outputs": [
                 {"key": "subscription_id", "type": "string", "description": "Provider-assigned subscription ID"},
                 {"key": "status", "type": "string", "description": "Subscription status after update"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -159,7 +159,7 @@
             "outputs": [
                 {"key": "subscription_id", "type": "string", "description": "Provider-assigned subscription ID"},
                 {"key": "status", "type": "string", "description": "Subscription status after cancellation"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -177,7 +177,7 @@
             "outputs": [
                 {"key": "url", "type": "string", "description": "Hosted checkout page URL to redirect the customer to"},
                 {"key": "session_id", "type": "string", "description": "Provider-assigned checkout session ID"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -192,7 +192,7 @@
             "outputs": [
                 {"key": "url", "type": "string", "description": "Billing portal URL to redirect the customer to"},
                 {"key": "session_id", "type": "string", "description": "Provider-assigned portal session ID"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -216,7 +216,7 @@
                 {"key": "event_id", "type": "string", "description": "Provider-assigned event ID"},
                 {"key": "data", "type": "json", "description": "Parsed event data payload"},
                 {"key": "metadata", "type": "json", "description": "Event metadata map"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -233,7 +233,7 @@
             "outputs": [
                 {"key": "transfer_id", "type": "string", "description": "Provider-assigned transfer ID"},
                 {"key": "status", "type": "string", "description": "Transfer status"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -250,7 +250,7 @@
             "outputs": [
                 {"key": "payout_id", "type": "string", "description": "Provider-assigned payout ID"},
                 {"key": "status", "type": "string", "description": "Payout status (e.g. paid, pending, in_transit)"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -266,7 +266,7 @@
             "outputs": [
                 {"key": "invoices", "type": "string", "description": "JSON-encoded array of invoice objects"},
                 {"key": "count", "type": "number", "description": "Number of invoices returned"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -281,7 +281,7 @@
             "outputs": [
                 {"key": "payment_method_id", "type": "string", "description": "Provider-assigned payment method ID"},
                 {"key": "type", "type": "string", "description": "Payment method type (e.g. card, sepa_debit)"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },
         {
@@ -296,7 +296,7 @@
             "outputs": [
                 {"key": "payment_methods", "type": "string", "description": "JSON-encoded array of payment method objects"},
                 {"key": "count", "type": "number", "description": "Number of payment methods returned"},
-                {"key": "error", "type": "string", "description": "Error message if the step failed; empty on success"}
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         }
     ],

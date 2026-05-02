@@ -100,29 +100,29 @@ func (p *paymentsPlugin) ModuleSchemas() []sdk.ModuleSchemaData {
 				{
 					Name:        "secretKey",
 					Type:        "string",
-					Description: "Stripe secret API key (sk_live_... or sk_test_...)",
+					Description: "Stripe secret API key (sk_live_... or sk_test_...). Legacy alias: secret_key.",
 				},
 				{
 					Name:        "webhookSecret",
 					Type:        "string",
-					Description: "Stripe webhook signing secret (whsec_...) used to verify inbound webhook payloads",
+					Description: "Stripe webhook signing secret (whsec_...) used to verify inbound webhook payloads. Legacy alias: webhook_secret.",
 				},
 				{
 					Name:         "defaultCurrency",
 					Type:         "string",
-					Description:  "Default ISO 4217 currency code for Stripe charges when not specified per-step",
+					Description:  "Default ISO 4217 currency code for Stripe charges when not specified per-step. Legacy alias: default_currency.",
 					DefaultValue: "usd",
 				},
 				// --- PayPal fields ---
 				{
 					Name:        "clientId",
 					Type:        "string",
-					Description: "PayPal application client ID",
+					Description: "PayPal application client ID. Required when provider=paypal. Legacy alias: client_id.",
 				},
 				{
 					Name:        "clientSecret",
 					Type:        "string",
-					Description: "PayPal application client secret",
+					Description: "PayPal application client secret. Required when provider=paypal. Legacy alias: client_secret.",
 				},
 				{
 					Name:         "environment",
@@ -134,7 +134,7 @@ func (p *paymentsPlugin) ModuleSchemas() []sdk.ModuleSchemaData {
 				{
 					Name:        "webhookId",
 					Type:        "string",
-					Description: "PayPal webhook ID used to verify inbound webhook payloads",
+					Description: "PayPal webhook ID used to verify inbound webhook payloads. Legacy alias: webhook_id.",
 				},
 			},
 		},

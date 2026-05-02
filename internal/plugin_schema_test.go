@@ -1,6 +1,10 @@
 package internal
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
@@ -115,6 +119,92 @@ func TestModuleSchemas_DefaultCurrency(t *testing.T) {
 	t.Error("defaultCurrency field not found")
 }
 
+func TestModuleSchemas_DocumentsProviderRequirementsAndAliases(t *testing.T) {
+	schema := moduleSchema(t)
+
+	fields := make(map[string]sdk.ConfigField)
+	for _, f := range schema.ConfigFields {
+		fields[f.Name] = f
+	}
+
+	cases := []struct {
+		field string
+		want  []string
+	}{
+		{field: "secretKey", want: []string{"secret_key"}},
+		{field: "webhookSecret", want: []string{"webhook_secret"}},
+		{field: "defaultCurrency", want: []string{"default_currency"}},
+		{field: "clientId", want: []string{"Required when provider=paypal", "client_id"}},
+		{field: "clientSecret", want: []string{"Required when provider=paypal", "client_secret"}},
+		{field: "webhookId", want: []string{"webhook_id"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.field, func(t *testing.T) {
+			field, ok := fields[tc.field]
+			if !ok {
+				t.Fatalf("field %q missing from module schema", tc.field)
+			}
+			for _, want := range tc.want {
+				if !strings.Contains(field.Description, want) {
+					t.Errorf("field %q description %q does not mention %q", tc.field, field.Description, want)
+				}
+			}
+		})
+	}
+}
+
+func TestPluginManifest_ErrorOutputsDocumentOmittedOnSuccess(t *testing.T) {
+	var manifest struct {
+		StepSchemas []struct {
+			Type    string `json:"type"`
+			Outputs []struct {
+				Key         string `json:"key"`
+				Description string `json:"description"`
+			} `json:"outputs"`
+		} `json:"stepSchemas"`
+	}
+	readJSONFile(t, filepath.Join("..", "plugin.json"), &manifest)
+
+	for _, step := range manifest.StepSchemas {
+		found := false
+		for _, output := range step.Outputs {
+			if output.Key != "error" {
+				continue
+			}
+			found = true
+			if !strings.Contains(output.Description, "omitted on success") {
+				t.Errorf("%s error output description %q does not document omission on success", step.Type, output.Description)
+			}
+			if strings.Contains(output.Description, "empty on success") {
+				t.Errorf("%s error output description %q still says empty on success", step.Type, output.Description)
+			}
+		}
+		if !found {
+			t.Errorf("%s does not document an error output", step.Type)
+		}
+	}
+}
+
+func TestCIWorkflow_ValidatesContractsFileWithStrictWfctl(t *testing.T) {
+	workflowPath := filepath.Join("..", ".github", "workflows", "ci.yml")
+	b, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("read CI workflow: %v", err)
+	}
+	workflow := string(b)
+
+	required := []string{
+		"plugin.contracts.json",
+		"go run github.com/GoCodeAlone/workflow/cmd/wfctl@v0.20.1 plugin validate --file plugin.json --strict-contracts",
+	}
+	for _, want := range required {
+		if !strings.Contains(workflow, want) {
+			t.Errorf("CI workflow does not contain %q", want)
+		}
+	}
+}
+
 func moduleSchema(t *testing.T) sdk.ModuleSchemaData {
 	t.Helper()
 	p := &paymentsPlugin{}
@@ -123,4 +213,15 @@ func moduleSchema(t *testing.T) sdk.ModuleSchemaData {
 		t.Fatalf("expected 1 module schema, got %d", len(schemas))
 	}
 	return schemas[0]
+}
+
+func readJSONFile(t *testing.T, path string, v any) {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if err := json.Unmarshal(b, v); err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
 }

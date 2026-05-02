@@ -4,6 +4,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+permissions:
+  contents: read
 env:
   GOPRIVATE: github.com/GoCodeAlone/*
 jobs:
@@ -36,5 +38,9 @@ jobs:
           fi
       - name: Validate plugin manifest (strict contracts)
         run: |
-          WFCTL_VERSION=$(go list -m -json github.com/GoCodeAlone/workflow | grep '"Version"' | sed 's/.*"Version": "\(.*\)".*/\1/')
-          go run github.com/GoCodeAlone/workflow/cmd/wfctl@${WFCTL_VERSION} plugin validate --file plugin.json
+          WFCTL_VERSION=$(go list -m -f '{{.Version}}' github.com/GoCodeAlone/workflow)
+          if [ -z "${WFCTL_VERSION}" ]; then
+            echo "ERROR: could not determine wfctl version from go.mod" >&2
+            exit 1
+          fi
+          go run github.com/GoCodeAlone/workflow/cmd/wfctl@${WFCTL_VERSION} plugin validate --file plugin.json --strict-contracts

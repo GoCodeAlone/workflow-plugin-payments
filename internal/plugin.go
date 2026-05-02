@@ -129,7 +129,7 @@ func (p *paymentsPlugin) ModuleSchemas() []sdk.ModuleSchemaData {
 					Type:         "select",
 					Description:  "PayPal API environment",
 					DefaultValue: "sandbox",
-					Options:      []string{"sandbox", "production"},
+					Options:      []string{"sandbox", "production", "live"},
 				},
 				{
 					Name:        "webhookId",

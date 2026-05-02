@@ -39,7 +39,7 @@
             "configFields": [
                 {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
                 {"key": "amount", "label": "Amount (cents)", "type": "number", "required": true, "description": "Charge amount in the smallest currency unit (e.g. cents for USD)"},
-                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code (e.g. usd). Falls back to provider default.", "placeholder": "usd"},
+                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code (e.g. usd). Falls back to provider default."},
                 {"key": "customer_id", "label": "Customer ID", "type": "string", "description": "Provider customer ID to attach the charge to"},
                 {"key": "capture_method", "label": "Capture Method", "type": "select", "options": ["automatic", "manual"], "defaultValue": "automatic", "description": "Whether to capture funds immediately (automatic) or hold for manual capture later"},
                 {"key": "description", "label": "Description", "type": "string", "description": "Optional description attached to the charge"}
@@ -90,7 +90,7 @@
             "configFields": [
                 {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
                 {"key": "amount", "label": "Amount (cents)", "type": "number", "required": true, "description": "Gross amount in smallest currency unit"},
-                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code", "placeholder": "usd"},
+                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code"},
                 {"key": "platform_fee_percent", "label": "Platform Fee (%)", "type": "number", "description": "Platform fee percentage (0-100). Defaults to 0.", "defaultValue": 0}
             ],
             "outputs": [
@@ -169,9 +169,9 @@
             "configFields": [
                 {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
                 {"key": "customer_id", "label": "Customer ID", "type": "string", "description": "Provider customer ID (optional for guest checkout)"},
-                {"key": "price_id", "label": "Price ID", "type": "string", "description": "Provider price/product ID for the checkout item"},
-                {"key": "success_url", "label": "Success URL", "type": "string", "description": "URL to redirect to after successful payment"},
-                {"key": "cancel_url", "label": "Cancel URL", "type": "string", "description": "URL to redirect to when the customer cancels"},
+                {"key": "price_id", "label": "Price ID", "type": "string", "required": true, "description": "Provider price/product ID for the checkout item"},
+                {"key": "success_url", "label": "Success URL", "type": "string", "required": true, "description": "URL to redirect to after successful payment"},
+                {"key": "cancel_url", "label": "Cancel URL", "type": "string", "required": true, "description": "URL to redirect to when the customer cancels"},
                 {"key": "mode", "label": "Mode", "type": "select", "options": ["subscription", "payment", "setup"], "defaultValue": "subscription", "description": "Checkout session mode"}
             ],
             "outputs": [
@@ -204,6 +204,7 @@
                 {"key": "request_body", "label": "Request Body", "type": "string", "description": "Raw webhook payload body (falls back to current.payload)"},
                 {"key": "Stripe-Signature", "label": "Stripe-Signature Header", "type": "string", "description": "Stripe webhook signature header value"},
                 {"key": "stripe_signature", "label": "Stripe Signature (alias)", "type": "string", "description": "Alternative key for Stripe-Signature"},
+                {"key": "webhook_signature", "label": "Webhook Signature (legacy alias)", "type": "string", "description": "Legacy alias for Stripe-Signature; mapped to Stripe-Signature header automatically"},
                 {"key": "Paypal-Transmission-Id", "label": "PayPal-Transmission-Id Header", "type": "string", "description": "PayPal webhook transmission ID header"},
                 {"key": "Paypal-Transmission-Sig", "label": "PayPal-Transmission-Sig Header", "type": "string", "description": "PayPal webhook signature header"},
                 {"key": "Paypal-Cert-Url", "label": "PayPal-Cert-Url Header", "type": "string", "description": "PayPal webhook certificate URL header"},
@@ -225,7 +226,7 @@
             "configFields": [
                 {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
                 {"key": "amount", "label": "Amount (cents)", "type": "number", "required": true, "description": "Transfer amount in smallest currency unit"},
-                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code", "placeholder": "usd"},
+                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code"},
                 {"key": "destination_account_id", "label": "Destination Account ID", "type": "string", "required": true, "description": "Connected account or PayPal ID to transfer funds to"},
                 {"key": "description", "label": "Description", "type": "string", "description": "Optional transfer description"}
             ],
@@ -242,7 +243,7 @@
             "configFields": [
                 {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
                 {"key": "amount", "label": "Amount (cents)", "type": "number", "required": true, "description": "Payout amount in smallest currency unit"},
-                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code", "placeholder": "usd"},
+                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code"},
                 {"key": "destination_bank_id", "label": "Destination Bank ID", "type": "string", "description": "Bank account or payout destination ID"},
                 {"key": "description", "label": "Description", "type": "string", "description": "Optional payout description"}
             ],

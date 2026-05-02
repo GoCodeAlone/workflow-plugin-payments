@@ -2,27 +2,23 @@ package internal
 
 import (
 	"testing"
+
+	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 )
 
 func TestModuleSchemas_ReturnsOneSchema(t *testing.T) {
-	p := &paymentsPlugin{}
-	schemas := p.ModuleSchemas()
-	if len(schemas) != 1 {
-		t.Fatalf("expected 1 module schema, got %d", len(schemas))
-	}
+	moduleSchema(t)
 }
 
 func TestModuleSchemas_ProviderType(t *testing.T) {
-	p := &paymentsPlugin{}
-	schema := p.ModuleSchemas()[0]
+	schema := moduleSchema(t)
 	if schema.Type != "payments.provider" {
 		t.Errorf("expected type %q, got %q", "payments.provider", schema.Type)
 	}
 }
 
 func TestModuleSchemas_RequiredFields(t *testing.T) {
-	p := &paymentsPlugin{}
-	schema := p.ModuleSchemas()[0]
+	schema := moduleSchema(t)
 
 	fieldMap := make(map[string]bool)
 	for _, f := range schema.ConfigFields {
@@ -58,8 +54,7 @@ func TestModuleSchemas_RequiredFields(t *testing.T) {
 }
 
 func TestModuleSchemas_ProviderOptions(t *testing.T) {
-	p := &paymentsPlugin{}
-	schema := p.ModuleSchemas()[0]
+	schema := moduleSchema(t)
 
 	for _, f := range schema.ConfigFields {
 		if f.Name == "provider" {
@@ -80,8 +75,7 @@ func TestModuleSchemas_ProviderOptions(t *testing.T) {
 }
 
 func TestModuleSchemas_EnvironmentOptions(t *testing.T) {
-	p := &paymentsPlugin{}
-	schema := p.ModuleSchemas()[0]
+	schema := moduleSchema(t)
 
 	for _, f := range schema.ConfigFields {
 		if f.Name == "environment" {
@@ -108,8 +102,7 @@ func TestModuleSchemas_EnvironmentOptions(t *testing.T) {
 }
 
 func TestModuleSchemas_DefaultCurrency(t *testing.T) {
-	p := &paymentsPlugin{}
-	schema := p.ModuleSchemas()[0]
+	schema := moduleSchema(t)
 
 	for _, f := range schema.ConfigFields {
 		if f.Name == "defaultCurrency" {
@@ -120,4 +113,14 @@ func TestModuleSchemas_DefaultCurrency(t *testing.T) {
 		}
 	}
 	t.Error("defaultCurrency field not found")
+}
+
+func moduleSchema(t *testing.T) sdk.ModuleSchemaData {
+	t.Helper()
+	p := &paymentsPlugin{}
+	schemas := p.ModuleSchemas()
+	if len(schemas) != 1 {
+		t.Fatalf("expected 1 module schema, got %d", len(schemas))
+	}
+	return schemas[0]
 }

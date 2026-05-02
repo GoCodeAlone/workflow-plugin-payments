@@ -1,0 +1,139 @@
+{
+  "version": "v1",
+  "contracts": [
+    {
+      "kind": "module",
+      "type": "payments.provider",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.ProviderConfig"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_charge",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentChargeConfig",
+      "input": "workflow.plugins.payments.v1.PaymentChargeInput",
+      "output": "workflow.plugins.payments.v1.PaymentChargeOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_capture",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentCaptureConfig",
+      "input": "workflow.plugins.payments.v1.PaymentCaptureInput",
+      "output": "workflow.plugins.payments.v1.PaymentCaptureOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_refund",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentRefundConfig",
+      "input": "workflow.plugins.payments.v1.PaymentRefundInput",
+      "output": "workflow.plugins.payments.v1.PaymentRefundOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_fee_calculate",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentFeeCalculateConfig",
+      "input": "workflow.plugins.payments.v1.PaymentFeeCalculateInput",
+      "output": "workflow.plugins.payments.v1.PaymentFeeCalculateOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_customer_ensure",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentCustomerEnsureConfig",
+      "input": "workflow.plugins.payments.v1.PaymentCustomerEnsureInput",
+      "output": "workflow.plugins.payments.v1.PaymentCustomerEnsureOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_subscription_create",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentSubscriptionCreateConfig",
+      "input": "workflow.plugins.payments.v1.PaymentSubscriptionCreateInput",
+      "output": "workflow.plugins.payments.v1.PaymentSubscriptionCreateOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_subscription_update",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentSubscriptionUpdateConfig",
+      "input": "workflow.plugins.payments.v1.PaymentSubscriptionUpdateInput",
+      "output": "workflow.plugins.payments.v1.PaymentSubscriptionUpdateOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_subscription_cancel",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentSubscriptionCancelConfig",
+      "input": "workflow.plugins.payments.v1.PaymentSubscriptionCancelInput",
+      "output": "workflow.plugins.payments.v1.PaymentSubscriptionCancelOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_checkout_create",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentCheckoutCreateConfig",
+      "input": "workflow.plugins.payments.v1.PaymentCheckoutCreateInput",
+      "output": "workflow.plugins.payments.v1.PaymentCheckoutCreateOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_portal_create",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentPortalCreateConfig",
+      "input": "workflow.plugins.payments.v1.PaymentPortalCreateInput",
+      "output": "workflow.plugins.payments.v1.PaymentPortalCreateOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_webhook_verify",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentWebhookVerifyConfig",
+      "input": "workflow.plugins.payments.v1.PaymentWebhookVerifyInput",
+      "output": "workflow.plugins.payments.v1.PaymentWebhookVerifyOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_transfer",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentTransferConfig",
+      "input": "workflow.plugins.payments.v1.PaymentTransferInput",
+      "output": "workflow.plugins.payments.v1.PaymentTransferOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_payout",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentPayoutConfig",
+      "input": "workflow.plugins.payments.v1.PaymentPayoutInput",
+      "output": "workflow.plugins.payments.v1.PaymentPayoutOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_invoice_list",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentInvoiceListConfig",
+      "input": "workflow.plugins.payments.v1.PaymentInvoiceListInput",
+      "output": "workflow.plugins.payments.v1.PaymentInvoiceListOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_method_attach",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentMethodAttachConfig",
+      "input": "workflow.plugins.payments.v1.PaymentMethodAttachInput",
+      "output": "workflow.plugins.payments.v1.PaymentMethodAttachOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.payment_method_list",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentMethodListConfig",
+      "input": "workflow.plugins.payments.v1.PaymentMethodListInput",
+      "output": "workflow.plugins.payments.v1.PaymentMethodListOutput"
+    }
+  ]
+}

@@ -194,9 +194,12 @@ func TestCIWorkflow_ValidatesContractsFileWithStrictWfctl(t *testing.T) {
 	}
 	workflow := string(b)
 
+	// Check high-level properties without pinning exact command strings or versions
+	// so minor refactors (job rename, wfctl version bump, formatting) don't break this test.
 	required := []string{
-		"plugin.contracts.json",
-		"go run github.com/GoCodeAlone/workflow/cmd/wfctl@v0.20.1 plugin validate --file plugin.json --strict-contracts",
+		"plugin-contracts",      // dedicated job must exist
+		"--strict-contracts",    // strict validation flag must be present
+		"plugin.contracts.json", // contracts file must be checked
 	}
 	for _, want := range required {
 		if !strings.Contains(workflow, want) {

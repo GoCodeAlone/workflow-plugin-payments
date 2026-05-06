@@ -2,8 +2,11 @@ version: 2
 
 before:
   hooks:
-    - go mod tidy
-    - "sed -i.bak 's/\"version\": \".*\"/\"version\": \"{{ .Version }}\"/' plugin.json && rm -f plugin.json.bak"
+    - bash scripts/goreleaser-prepare.sh {{ .Version }}
+
+after:
+  hooks:
+    - mv plugin.json.orig plugin.json
 
 builds:
   - id: workflow-plugin-payments
@@ -26,6 +29,7 @@ archives:
     name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
     files:
       - plugin.json
+      - plugin.contracts.json
       - LICENSE
 
 checksum:

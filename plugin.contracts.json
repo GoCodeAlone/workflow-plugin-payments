@@ -98,7 +98,10 @@
     {
       "kind": "step",
       "type": "step.payment_webhook_endpoint_ensure",
-      "mode": "legacy_struct"
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentWebhookEndpointEnsureConfig",
+      "input": "workflow.plugins.payments.v1.PaymentWebhookEndpointEnsureInput",
+      "output": "workflow.plugins.payments.v1.PaymentWebhookEndpointEnsureOutput"
     },
     {
       "kind": "step",

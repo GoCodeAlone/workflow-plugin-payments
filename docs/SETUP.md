@@ -11,10 +11,10 @@ wfctl plugin install workflow-plugin-payments
 
 `wfctl plugin install` reads from [workflow-registry](https://github.com/GoCodeAlone/workflow-registry/tree/main/plugins/payments), downloads the matching release binary from GitHub, and extracts it to `data/plugins/payments/`. It also writes a `wfctl.yaml` entry + `.wfctl-lock.yaml` line so subsequent `wfctl plugin install` calls (e.g. in CI) are deterministic.
 
-Pin a specific version:
+Pin a specific version (replace `<tag>` with a real [release tag](https://github.com/GoCodeAlone/workflow-plugin-payments/releases)):
 
 ```sh
-wfctl plugin install workflow-plugin-payments@v0.3.1
+wfctl plugin install workflow-plugin-payments@<tag>
 ```
 
 In CI, install is usually delegated to a composite action that reads the lockfile and bulk-installs all declared plugins:

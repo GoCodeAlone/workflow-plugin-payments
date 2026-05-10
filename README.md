@@ -7,7 +7,7 @@ Multi-provider payment processing for the [GoCodeAlone/workflow](https://github.
 | Surface | Purpose |
 |---|---|
 | `payments.provider` module | Provider-backed runtime (Stripe, PayPal). Configures secret keys + defaults. |
-| 17 `step.payment_*` step types | Charge / capture / refund / customer / subscription / checkout / portal / webhook verify + ensure / transfer / payout / invoice / payment-method ops. |
+| 17 `step.payment_*` step types | Charge / capture / refund / fee-calculate / customer / subscription / checkout / portal / webhook verify + ensure / transfer / payout / invoice / payment-method ops. |
 | `wfctl payments` CLI | Plugin-CLI commands operators run without standing the engine up — e.g. one-shot webhook endpoint provisioning. |
 
 ## Install
@@ -26,8 +26,10 @@ This downloads the latest release tarball, extracts to `data/plugins/payments/`,
 To pin a specific version, use `<name>@<tag>`:
 
 ```sh
-wfctl plugin install workflow-plugin-payments@v0.3.1
+wfctl plugin install workflow-plugin-payments@<tag>     # e.g. @v0.3.1
 ```
+
+Replace `<tag>` with the desired [release tag](https://github.com/GoCodeAlone/workflow-plugin-payments/releases). The repo-level `plugin.json` shows the previous release version; the version stamped into the installed manifest comes from the registry entry, which is updated each release.
 
 ## Configure
 
@@ -84,10 +86,12 @@ The CLI surface is registered via [the plugin-CLI registry](https://github.com/G
 
 | | Version |
 |---|---|
-| `payments.PaymentProvider` Go interface | v0.3.x — adds `WebhookEndpointEnsure` |
-| stripe-go | v82 (current) |
+| `payments.PaymentProvider` Go interface | `WebhookEndpointEnsure` added at v0.3.0; latest release is the source of truth (see [releases](https://github.com/GoCodeAlone/workflow-plugin-payments/releases)) |
+| stripe-go | v82 |
 | Minimum workflow engine | v0.3.12 (declared in `plugin.json:minEngineVersion`) |
 | Minimum wfctl for plugin-CLI dispatch | **v0.27.5** (4-fix lineage: `#591`/`#595`/`#612`/`#613`) |
+
+Note: the repo-level `plugin.json` records the most recent release's version metadata at release time (via `goreleaser-prepare.sh`). Between releases the file lags behind the Git tag — always trust the [releases page](https://github.com/GoCodeAlone/workflow-plugin-payments/releases) and the [registry manifest](https://github.com/GoCodeAlone/workflow-registry/blob/main/plugins/payments/manifest.json) over the in-tree `plugin.json` version field.
 
 The wfctl floor is real: earlier versions silently fail to dispatch `wfctl payments …` because of bugs in BuildCLIRegistry's binary-path resolution, the post-install plugin.json's stripped `cliCommands`, etc. Pin `setup-wfctl@v1` to `version: v0.27.5` or later.
 

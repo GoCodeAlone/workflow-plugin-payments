@@ -20,7 +20,7 @@ wfctl payments webhook ensure \
 
 | Flag | Notes |
 |---|---|
-| `--provider` | `stripe` today. `paypal` returns `payments.ErrUnsupported` (PayPal webhook management surface differs; tracked for follow-up). |
+| `--provider` | `stripe` today. `--provider paypal` is rejected by the CLI with `paypal CLI provider not implemented (see PaymentProvider.WebhookEndpointEnsure stub)` — the engine-side `payments.PaymentProvider.WebhookEndpointEnsure` for PayPal returns `payments.ErrUnsupported`; the CLI fast-fails before reaching it. PayPal webhook-management integration is tracked as a follow-up. |
 | `--url` | Full https URL. Provider does not validate the URL is reachable at create-time. |
 | `--events` | Comma-separated provider event names. Sort + dedup + lowercase happen automatically; reorder/duplicate input does not register as drift. |
 | `--description` | Optional human-readable label stored on the endpoint. |
@@ -187,7 +187,7 @@ Implementation: `internal/provider_stripe.go`. Calls `webhookendpoint.{New,Updat
 
 ### PayPal
 
-`WebhookEndpointEnsure` returns `payments.ErrUnsupported`. The PayPal webhook-management API (`/v1/notifications/webhooks`) has different idempotency semantics from Stripe's `/v1/webhook_endpoints`; integration tracked as a follow-up. PayPal webhook **verification** (`step.payment_webhook_verify`) is fully supported.
+The CLI dispatch path for PayPal is unimplemented — `wfctl payments webhook ensure --provider paypal` exits with `paypal CLI provider not implemented (see PaymentProvider.WebhookEndpointEnsure stub)`. The engine-side `PaymentProvider.WebhookEndpointEnsure` for PayPal returns `payments.ErrUnsupported`; the CLI never reaches it because the provider-selection switch fast-fails first. The PayPal webhook-management API (`/v1/notifications/webhooks`) has different idempotency semantics from Stripe's `/v1/webhook_endpoints`; integration tracked as a follow-up. PayPal webhook **verification** (`step.payment_webhook_verify`) is fully supported.
 
 ## Troubleshooting
 
@@ -206,10 +206,6 @@ Plugin-install cache may have a stale `plugin.json` from before the registry man
 **`api_key is required …`**
 
 The CLI couldn't read the API key from the configured env var. Check `STRIPE_SECRET_KEY` (or your `--api-key-env` override) is exported in the calling process. The CLI never accepts the key on argv to keep it out of shell history.
-
-**`webhook ensure: url path must be …` on stripe**
-
-The Stripe provider validates that the URL has an `https` scheme + non-empty host. A typo is caught here rather than silently provisioning against the wrong URL — particularly important under `--mode replace` where a wrong URL would rotate the signing secret of an unrelated endpoint that happens to match the typo.
 
 **Plugin install cache hits a stale tarball after registry update**
 

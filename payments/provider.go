@@ -49,4 +49,12 @@ type PaymentProvider interface {
 
 	// CalculateFees computes the fee breakdown for a given transaction amount.
 	CalculateFees(amount int64, currency string, platformFeePercent float64) (*FeeBreakdown, error)
+
+	// WebhookEndpointEnsure idempotently provisions a webhook endpoint on the
+	// provider. Returns Created=true with a populated SigningSecret on
+	// fresh-create. On URL match with identical events the call is a no-op
+	// (Created=false, SigningSecret=""). Events drift triggers an update
+	// (Created=false, EventsDrift=true). Mode "replace" rotates the signing
+	// secret via delete+create; never invoked unless explicitly requested.
+	WebhookEndpointEnsure(ctx context.Context, p WebhookEndpointEnsureParams) (*WebhookEndpointEnsureResult, error)
 }

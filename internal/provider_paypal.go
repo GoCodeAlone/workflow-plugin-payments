@@ -518,6 +518,15 @@ func (p *paypalProvider) ListPaymentMethods(_ context.Context, _, _ string) ([]*
 	return nil, payments.ErrUnsupported
 }
 
+// WebhookEndpointEnsure is not implemented for PayPal in this plugin: the
+// PayPal webhook-management surface (POST /v1/notifications/webhooks) has
+// different idempotency semantics from Stripe's /v1/webhook_endpoints.
+// Callers receive payments.ErrUnsupported so the failure routes to a
+// provider-specific runbook rather than silently no-oping.
+func (p *paypalProvider) WebhookEndpointEnsure(_ context.Context, _ payments.WebhookEndpointEnsureParams) (*payments.WebhookEndpointEnsureResult, error) {
+	return nil, payments.ErrUnsupported
+}
+
 func (p *paypalProvider) CalculateFees(amount int64, _ string, platformFeePercent float64) (*payments.FeeBreakdown, error) {
 	// PayPal: 2.99% + $0.49 (49 cents)
 	const processingFeeRate = 0.0299

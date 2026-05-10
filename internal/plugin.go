@@ -70,6 +70,7 @@ func (p *paymentsPlugin) StepTypes() []string {
 		"step.payment_checkout_create",
 		"step.payment_portal_create",
 		"step.payment_webhook_verify",
+		"step.payment_webhook_endpoint_ensure",
 		"step.payment_transfer",
 		"step.payment_payout",
 		"step.payment_invoice_list",
@@ -166,6 +167,8 @@ func (p *paymentsPlugin) CreateStep(typeName, name string, config map[string]any
 		return newPortalStep(name, config)
 	case "step.payment_webhook_verify":
 		return newWebhookStep(name, config)
+	case "step.payment_webhook_endpoint_ensure":
+		return newWebhookEndpointEnsureStep(name, config)
 	case "step.payment_transfer":
 		return newTransferStep(name, config)
 	case "step.payment_payout":

@@ -294,10 +294,10 @@ pipelines:
 	)
 
 	result := h.ExecutePipeline("transfer-payout", map[string]any{
-		"amount":                int64(10000),
-		"currency":              "usd",
+		"amount":                 int64(10000),
+		"currency":               "usd",
 		"destination_account_id": "acct_test123",
-		"destination_bank_id":   "bank_test456",
+		"destination_bank_id":    "bank_test456",
 	})
 	if result.Error != nil {
 		t.Fatalf("pipeline error: %v", result.Error)

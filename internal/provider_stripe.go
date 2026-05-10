@@ -2,10 +2,13 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
+	"sort"
+	"strings"
 
 	"github.com/GoCodeAlone/workflow-plugin-payments/payments"
 	stripe "github.com/stripe/stripe-go/v82"
@@ -20,6 +23,13 @@ import (
 	"github.com/stripe/stripe-go/v82/subscription"
 	"github.com/stripe/stripe-go/v82/transfer"
 	"github.com/stripe/stripe-go/v82/webhook"
+	"github.com/stripe/stripe-go/v82/webhookendpoint"
+)
+
+// Webhook-ensure mode constants for WebhookEndpointEnsureParams.Mode.
+const (
+	webhookEnsureModeEnsure  = "ensure"
+	webhookEnsureModeReplace = "replace"
 )
 
 // errStripeKeyMissing aliases the exported payments.ErrStripeKeyMissing for
@@ -543,4 +553,174 @@ func (p *stripeProvider) CalculateFees(amount int64, _ string, platformFeePercen
 		ProcessingFeeRate:  processingFeeRate,
 		ProcessingFeeFixed: processingFeeFixed,
 	}, nil
+}
+
+// WebhookEndpointEnsure idempotently provisions a Stripe webhook endpoint.
+// Behaviour:
+//   - URL match + events identical → no-op (Created=false; SigningSecret="").
+//   - URL match + events drift, mode=ensure → POST update; EventsDrift=true.
+//   - No URL match → POST create; SigningSecret populated.
+//   - Mode=replace + URL match → DELETE then POST; rotates signing secret.
+//
+// Events are sort+dedup+lowercased before equality so reorder/duplicate
+// in the requested list does not register as drift.
+//
+// Per-call clients use p.backendFor(stripe.APIBackend) so injected test
+// backends are honored; fall back to a freshly-resolved package backend
+// when no test override is configured.
+func (p *stripeProvider) WebhookEndpointEnsure(_ context.Context, in payments.WebhookEndpointEnsureParams) (*payments.WebhookEndpointEnsureResult, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
+	if in.URL == "" {
+		return nil, errors.New("webhook ensure: url is required")
+	}
+	if len(in.Events) == 0 {
+		return nil, errors.New("webhook ensure: events list must contain at least one event")
+	}
+	mode := in.Mode
+	if mode == "" {
+		mode = webhookEnsureModeEnsure
+	}
+	if mode != webhookEnsureModeEnsure && mode != webhookEnsureModeReplace {
+		return nil, fmt.Errorf("webhook ensure: mode must be %q or %q (got %q)",
+			webhookEnsureModeEnsure, webhookEnsureModeReplace, mode)
+	}
+
+	wantEvents := normalizeWebhookEvents(in.Events)
+	client := p.webhookEndpointClient()
+
+	existing, err := findWebhookByURL(client, in.URL)
+	if err != nil {
+		return nil, fmt.Errorf("list webhook endpoints: %w", err)
+	}
+
+	switch mode {
+	case webhookEnsureModeReplace:
+		if existing != nil {
+			if _, err := client.Del(existing.ID, nil); err != nil {
+				return nil, fmt.Errorf("delete existing endpoint %s for replace: %w", existing.ID, err)
+			}
+			log.Printf("payments-plugin: rotated webhook endpoint id=%s url=%s", existing.ID, in.URL)
+		}
+		return createWebhookEndpoint(client, in, wantEvents)
+
+	case webhookEnsureModeEnsure:
+		if existing == nil {
+			return createWebhookEndpoint(client, in, wantEvents)
+		}
+		gotEvents := normalizeWebhookEvents(existing.EnabledEvents)
+		if webhookEventsEqual(wantEvents, gotEvents) {
+			return &payments.WebhookEndpointEnsureResult{
+				EndpointID:    existing.ID,
+				Created:       false,
+				EventsDrift:   false,
+				SigningSecret: "",
+			}, nil
+		}
+		params := &stripe.WebhookEndpointParams{
+			EnabledEvents: stripeStringSlice(wantEvents),
+		}
+		if in.Description != "" {
+			params.Description = stripe.String(in.Description)
+		}
+		updated, err := client.Update(existing.ID, params)
+		if err != nil {
+			return nil, fmt.Errorf("update endpoint %s events: %w", existing.ID, err)
+		}
+		return &payments.WebhookEndpointEnsureResult{
+			EndpointID:    updated.ID,
+			Created:       false,
+			EventsDrift:   true,
+			SigningSecret: "",
+		}, nil
+	}
+	return nil, fmt.Errorf("webhook ensure: unreachable mode %q", mode)
+}
+
+// webhookEndpointClient builds a Client honoring any injected test backend,
+// falling back to the stripe-go default backend when none is configured.
+func (p *stripeProvider) webhookEndpointClient() webhookendpoint.Client {
+	be := p.backendFor(stripe.APIBackend)
+	if be == nil {
+		be = stripe.GetBackend(stripe.APIBackend)
+	}
+	return webhookendpoint.Client{B: be, Key: p.secretKey}
+}
+
+func findWebhookByURL(client webhookendpoint.Client, url string) (*stripe.WebhookEndpoint, error) {
+	listParams := &stripe.WebhookEndpointListParams{}
+	listParams.Limit = stripe.Int64(100)
+	iter := client.List(listParams)
+	for iter.Next() {
+		ep := iter.WebhookEndpoint()
+		if ep != nil && ep.URL == url {
+			return ep, nil
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func createWebhookEndpoint(client webhookendpoint.Client, in payments.WebhookEndpointEnsureParams, events []string) (*payments.WebhookEndpointEnsureResult, error) {
+	params := &stripe.WebhookEndpointParams{
+		URL:           stripe.String(in.URL),
+		EnabledEvents: stripeStringSlice(events),
+	}
+	if in.Description != "" {
+		params.Description = stripe.String(in.Description)
+	}
+	created, err := client.New(params)
+	if err != nil {
+		return nil, fmt.Errorf("create webhook endpoint: %w", err)
+	}
+	return &payments.WebhookEndpointEnsureResult{
+		EndpointID:    created.ID,
+		Created:       true,
+		EventsDrift:   false,
+		SigningSecret: created.Secret,
+	}, nil
+}
+
+// normalizeWebhookEvents sorts, lowercases, and deduplicates an event list so
+// equality comparison between requested and existing events is order- and
+// duplicate-independent.
+func normalizeWebhookEvents(events []string) []string {
+	seen := make(map[string]struct{}, len(events))
+	out := make([]string, 0, len(events))
+	for _, e := range events {
+		e = strings.ToLower(strings.TrimSpace(e))
+		if e == "" {
+			continue
+		}
+		if _, dup := seen[e]; dup {
+			continue
+		}
+		seen[e] = struct{}{}
+		out = append(out, e)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func webhookEventsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func stripeStringSlice(s []string) []*string {
+	out := make([]*string, len(s))
+	for i, v := range s {
+		out[i] = stripe.String(v)
+	}
+	return out
 }

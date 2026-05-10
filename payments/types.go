@@ -4,10 +4,10 @@ package payments
 
 // ChargeParams holds parameters for creating a payment charge.
 type ChargeParams struct {
-	Amount        int64             // amount in smallest currency unit (e.g. cents)
-	Currency      string            // ISO 4217 currency code (e.g. "usd")
-	CustomerID    string            // optional customer ID
-	CaptureMethod string            // "automatic" or "manual"
+	Amount        int64  // amount in smallest currency unit (e.g. cents)
+	Currency      string // ISO 4217 currency code (e.g. "usd")
+	CustomerID    string // optional customer ID
+	CaptureMethod string // "automatic" or "manual"
 	Description   string
 	Metadata      map[string]string
 }
@@ -158,4 +158,29 @@ type PaymentMethod struct {
 	ID         string
 	Type       string
 	CustomerID string
+}
+
+// WebhookEndpointEnsureParams holds parameters for idempotently provisioning
+// a provider webhook endpoint.
+type WebhookEndpointEnsureParams struct {
+	URL         string   // https URL the provider will POST events to
+	Events      []string // provider event names; sort/dedup is the impl's responsibility
+	Description string
+	// Mode is "ensure" (default) or "replace". Replace deletes any existing
+	// endpoint at the same URL and creates a fresh one — rotates the signing
+	// secret. Mode must be explicit; ensure never falls back to replace.
+	Mode string
+}
+
+// WebhookEndpointEnsureResult is the outcome of a WebhookEndpointEnsure call.
+//
+// SigningSecret is populated only on the fresh-create branch (Created=true).
+// On idempotent re-runs (URL matches, no drift) it is the empty string so
+// downstream secret-persistence steps can short-circuit and not overwrite a
+// previously-stored secret with empty.
+type WebhookEndpointEnsureResult struct {
+	EndpointID    string
+	Created       bool
+	EventsDrift   bool
+	SigningSecret string
 }

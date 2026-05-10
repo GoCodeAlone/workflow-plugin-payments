@@ -234,6 +234,20 @@ func (m *mockProvider) ListPaymentMethods(_ context.Context, customerID, pmType 
 	return result, nil
 }
 
+func (m *mockProvider) WebhookEndpointEnsure(_ context.Context, p payments.WebhookEndpointEnsureParams) (*payments.WebhookEndpointEnsureResult, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// Mock: always treat as fresh-create with deterministic IDs so tests can
+	// assert against the result shape without HTTP plumbing.
+	id := m.nextID("we")
+	return &payments.WebhookEndpointEnsureResult{
+		EndpointID:    id,
+		Created:       true,
+		EventsDrift:   false,
+		SigningSecret: "whsec_mock_" + id,
+	}, nil
+}
+
 func (m *mockProvider) CalculateFees(amount int64, currency string, platformFeePercent float64) (*payments.FeeBreakdown, error) {
 	// Use Stripe formula for mock.
 	const feeRate = 0.029

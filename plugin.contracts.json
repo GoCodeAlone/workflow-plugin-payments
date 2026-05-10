@@ -97,6 +97,11 @@
     },
     {
       "kind": "step",
+      "type": "step.payment_webhook_endpoint_ensure",
+      "mode": "legacy_struct"
+    },
+    {
+      "kind": "step",
       "type": "step.payment_transfer",
       "mode": "strict",
       "config": "workflow.plugins.payments.v1.PaymentTransferConfig",

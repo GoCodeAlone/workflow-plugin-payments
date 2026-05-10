@@ -11,6 +11,15 @@
     "keywords": ["payments", "stripe", "paypal", "billing", "checkout", "subscriptions"],
     "homepage": "https://github.com/GoCodeAlone/workflow-plugin-payments",
     "repository": "https://github.com/GoCodeAlone/workflow-plugin-payments",
+    "capabilities": {
+        "cliCommands": [
+            {
+                "name": "payments",
+                "description": "Payment provider operations (webhook ensure, …)",
+                "flagsPassthrough": true
+            }
+        ]
+    },
     "moduleTypes": ["payments.provider"],
     "stepTypes": [
         "step.payment_charge",
@@ -24,6 +33,7 @@
         "step.payment_checkout_create",
         "step.payment_portal_create",
         "step.payment_webhook_verify",
+        "step.payment_webhook_endpoint_ensure",
         "step.payment_transfer",
         "step.payment_payout",
         "step.payment_invoice_list",
@@ -216,6 +226,25 @@
                 {"key": "event_id", "type": "string", "description": "Provider-assigned event ID"},
                 {"key": "data", "type": "json", "description": "Parsed event data payload"},
                 {"key": "metadata", "type": "json", "description": "Event metadata map"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
+            ]
+        },
+        {
+            "type": "step.payment_webhook_endpoint_ensure",
+            "plugin": "workflow-plugin-payments",
+            "description": "Idempotently provisions a provider webhook endpoint. URL match + identical events → no-op. URL match + drift → updates events. No URL match → creates and returns signing_secret. Mode 'replace' deletes+creates to rotate the signing secret.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "url", "label": "Webhook URL", "type": "string", "required": true, "description": "https URL the provider will POST events to"},
+                {"key": "events", "label": "Events", "type": "string", "required": true, "description": "List of provider event names (sort/dedup is automatic)"},
+                {"key": "description", "label": "Description", "type": "string", "description": "Optional human-readable description stored on the endpoint"},
+                {"key": "mode", "label": "Mode", "type": "select", "options": ["ensure", "replace"], "defaultValue": "ensure", "description": "ensure (idempotent) or replace (rotates signing secret — destructive)"}
+            ],
+            "outputs": [
+                {"key": "endpoint_id", "type": "string", "description": "Provider-assigned endpoint ID (we_… for Stripe)"},
+                {"key": "created", "type": "boolean", "description": "True on fresh-create branch; false on no-op or update"},
+                {"key": "events_drift", "type": "boolean", "description": "True when events list was patched on an existing endpoint"},
+                {"key": "signing_secret", "type": "string", "description": "Webhook signing secret. Populated only when created=true; empty on every other branch (V3 invariant)."},
                 {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },

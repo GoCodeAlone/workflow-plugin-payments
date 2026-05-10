@@ -1,12 +1,13 @@
 version: 2
 
+# Note: goreleaser v2 has no top-level `after:` block — only `before:` is
+# valid for project hooks. plugin.json restore is handled by
+# scripts/goreleaser-prepare.sh's `trap cleanup ERR` on error paths;
+# success-path cleanup is unnecessary because CI runs on an ephemeral
+# checkout each time, so persistent state on disk does not matter.
 before:
   hooks:
     - bash scripts/goreleaser-prepare.sh {{ .Version }}
-
-after:
-  hooks:
-    - mv plugin.json.orig plugin.json
 
 builds:
   - id: workflow-plugin-payments

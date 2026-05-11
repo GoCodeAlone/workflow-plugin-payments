@@ -1,0 +1,358 @@
+syntax = "proto3";
+
+package workflow.plugins.payments.v1;
+
+option go_package = "github.com/GoCodeAlone/workflow-plugin-payments/proto/payments/v1;paymentsv1";
+
+// ProviderConfig is the configuration for the payments.provider module.
+message ProviderConfig {
+  // provider selects the payment backend: "stripe" or "paypal".
+  string provider = 1;
+  // secretKey is the Stripe secret API key (sk_live_... or sk_test_...).
+  string secret_key = 2;
+  // webhookSecret is the Stripe webhook signing secret (whsec_...).
+  string webhook_secret = 3;
+  // defaultCurrency is the ISO 4217 default currency for Stripe charges.
+  string default_currency = 4;
+  // clientId is the PayPal application client ID.
+  string client_id = 5;
+  // clientSecret is the PayPal application client secret.
+  string client_secret = 6;
+  // environment selects the PayPal API environment: "sandbox", "production", or "live".
+  string environment = 7;
+  // webhookId is the PayPal webhook ID for verifying inbound webhook payloads.
+  string webhook_id = 8;
+}
+
+// PaymentChargeConfig configures the step.payment_charge step.
+message PaymentChargeConfig {
+  string module = 1;
+}
+
+// PaymentChargeInput is the input for step.payment_charge.
+message PaymentChargeInput {
+  int64 amount = 1;
+  string currency = 2;
+  string customer_id = 3;
+  string capture_method = 4;
+  string description = 5;
+}
+
+// PaymentChargeOutput is the output from step.payment_charge.
+message PaymentChargeOutput {
+  string charge_id = 1;
+  string client_secret = 2;
+  string status = 3;
+  int64 amount = 4;
+  string error = 5;
+}
+
+// PaymentCaptureConfig configures the step.payment_capture step.
+message PaymentCaptureConfig {
+  string module = 1;
+}
+
+// PaymentCaptureInput is the input for step.payment_capture.
+message PaymentCaptureInput {
+  string charge_id = 1;
+  int64 amount = 2;
+}
+
+// PaymentCaptureOutput is the output from step.payment_capture.
+message PaymentCaptureOutput {
+  string status = 1;
+  int64 amount = 2;
+  string error = 3;
+}
+
+// PaymentRefundConfig configures the step.payment_refund step.
+message PaymentRefundConfig {
+  string module = 1;
+}
+
+// PaymentRefundInput is the input for step.payment_refund.
+message PaymentRefundInput {
+  string charge_id = 1;
+  int64 amount = 2;
+  string reason = 3;
+}
+
+// PaymentRefundOutput is the output from step.payment_refund.
+message PaymentRefundOutput {
+  string refund_id = 1;
+  string status = 2;
+  string error = 3;
+}
+
+// PaymentFeeCalculateConfig configures the step.payment_fee_calculate step.
+message PaymentFeeCalculateConfig {
+  string module = 1;
+}
+
+// PaymentFeeCalculateInput is the input for step.payment_fee_calculate.
+message PaymentFeeCalculateInput {
+  int64 amount = 1;
+  string currency = 2;
+  double platform_fee_percent = 3;
+}
+
+// PaymentFeeCalculateOutput is the output from step.payment_fee_calculate.
+message PaymentFeeCalculateOutput {
+  int64 contribution_amount = 1;
+  int64 processing_fee = 2;
+  int64 platform_fee = 3;
+  int64 total_charge = 4;
+  string error = 5;
+}
+
+// PaymentCustomerEnsureConfig configures the step.payment_customer_ensure step.
+message PaymentCustomerEnsureConfig {
+  string module = 1;
+}
+
+// PaymentCustomerEnsureInput is the input for step.payment_customer_ensure.
+message PaymentCustomerEnsureInput {
+  string email = 1;
+  string name = 2;
+}
+
+// PaymentCustomerEnsureOutput is the output from step.payment_customer_ensure.
+message PaymentCustomerEnsureOutput {
+  string customer_id = 1;
+  string email = 2;
+  string name = 3;
+  string error = 4;
+}
+
+// PaymentSubscriptionCreateConfig configures the step.payment_subscription_create step.
+message PaymentSubscriptionCreateConfig {
+  string module = 1;
+}
+
+// PaymentSubscriptionCreateInput is the input for step.payment_subscription_create.
+message PaymentSubscriptionCreateInput {
+  string customer_id = 1;
+  string price_id = 2;
+}
+
+// PaymentSubscriptionCreateOutput is the output from step.payment_subscription_create.
+message PaymentSubscriptionCreateOutput {
+  string subscription_id = 1;
+  string status = 2;
+  string error = 3;
+}
+
+// PaymentSubscriptionUpdateConfig configures the step.payment_subscription_update step.
+message PaymentSubscriptionUpdateConfig {
+  string module = 1;
+}
+
+// PaymentSubscriptionUpdateInput is the input for step.payment_subscription_update.
+message PaymentSubscriptionUpdateInput {
+  string subscription_id = 1;
+  string price_id = 2;
+}
+
+// PaymentSubscriptionUpdateOutput is the output from step.payment_subscription_update.
+message PaymentSubscriptionUpdateOutput {
+  string subscription_id = 1;
+  string status = 2;
+  string error = 3;
+}
+
+// PaymentSubscriptionCancelConfig configures the step.payment_subscription_cancel step.
+message PaymentSubscriptionCancelConfig {
+  string module = 1;
+}
+
+// PaymentSubscriptionCancelInput is the input for step.payment_subscription_cancel.
+message PaymentSubscriptionCancelInput {
+  string subscription_id = 1;
+  bool cancel_at_period_end = 2;
+}
+
+// PaymentSubscriptionCancelOutput is the output from step.payment_subscription_cancel.
+message PaymentSubscriptionCancelOutput {
+  string subscription_id = 1;
+  string status = 2;
+  string error = 3;
+}
+
+// PaymentCheckoutCreateConfig configures the step.payment_checkout_create step.
+message PaymentCheckoutCreateConfig {
+  string module = 1;
+}
+
+// PaymentCheckoutCreateInput is the input for step.payment_checkout_create.
+message PaymentCheckoutCreateInput {
+  string customer_id = 1;
+  string price_id = 2;
+  string success_url = 3;
+  string cancel_url = 4;
+  string mode = 5;
+}
+
+// PaymentCheckoutCreateOutput is the output from step.payment_checkout_create.
+message PaymentCheckoutCreateOutput {
+  string url = 1;
+  string session_id = 2;
+  string error = 3;
+}
+
+// PaymentPortalCreateConfig configures the step.payment_portal_create step.
+message PaymentPortalCreateConfig {
+  string module = 1;
+}
+
+// PaymentPortalCreateInput is the input for step.payment_portal_create.
+message PaymentPortalCreateInput {
+  string customer_id = 1;
+  string return_url = 2;
+}
+
+// PaymentPortalCreateOutput is the output from step.payment_portal_create.
+message PaymentPortalCreateOutput {
+  string url = 1;
+  string session_id = 2;
+  string error = 3;
+}
+
+// PaymentWebhookVerifyConfig configures the step.payment_webhook_verify step.
+message PaymentWebhookVerifyConfig {
+  string module = 1;
+}
+
+// PaymentWebhookVerifyInput is the input for step.payment_webhook_verify.
+message PaymentWebhookVerifyInput {
+  string request_body = 1;
+  string stripe_signature = 2;
+  string paypal_transmission_id = 3;
+  string paypal_transmission_sig = 4;
+  string paypal_cert_url = 5;
+  string paypal_auth_algo = 6;
+  string paypal_transmission_time = 7;
+}
+
+// PaymentWebhookVerifyOutput is the output from step.payment_webhook_verify.
+message PaymentWebhookVerifyOutput {
+  string event_type = 1;
+  string event_id = 2;
+  string error = 3;
+}
+
+// PaymentWebhookEndpointEnsureConfig configures the step.payment_webhook_endpoint_ensure step.
+message PaymentWebhookEndpointEnsureConfig {
+  string module = 1;
+}
+
+// PaymentWebhookEndpointEnsureInput is the input for step.payment_webhook_endpoint_ensure.
+message PaymentWebhookEndpointEnsureInput {
+  string url = 1;
+  repeated string events = 2;
+  string description = 3;
+  string mode = 4;
+}
+
+// PaymentWebhookEndpointEnsureOutput is the output from step.payment_webhook_endpoint_ensure.
+message PaymentWebhookEndpointEnsureOutput {
+  string endpoint_id = 1;
+  bool created = 2;
+  bool events_drift = 3;
+  string signing_secret = 4;
+  string error = 5;
+}
+
+// PaymentTransferConfig configures the step.payment_transfer step.
+message PaymentTransferConfig {
+  string module = 1;
+}
+
+// PaymentTransferInput is the input for step.payment_transfer.
+message PaymentTransferInput {
+  int64 amount = 1;
+  string currency = 2;
+  string destination_account_id = 3;
+  string description = 4;
+}
+
+// PaymentTransferOutput is the output from step.payment_transfer.
+message PaymentTransferOutput {
+  string transfer_id = 1;
+  string status = 2;
+  string error = 3;
+}
+
+// PaymentPayoutConfig configures the step.payment_payout step.
+message PaymentPayoutConfig {
+  string module = 1;
+}
+
+// PaymentPayoutInput is the input for step.payment_payout.
+message PaymentPayoutInput {
+  int64 amount = 1;
+  string currency = 2;
+  string destination_bank_id = 3;
+  string description = 4;
+}
+
+// PaymentPayoutOutput is the output from step.payment_payout.
+message PaymentPayoutOutput {
+  string payout_id = 1;
+  string status = 2;
+  string error = 3;
+}
+
+// PaymentInvoiceListConfig configures the step.payment_invoice_list step.
+message PaymentInvoiceListConfig {
+  string module = 1;
+}
+
+// PaymentInvoiceListInput is the input for step.payment_invoice_list.
+message PaymentInvoiceListInput {
+  string customer_id = 1;
+  int64 limit = 2;
+  string status = 3;
+}
+
+// PaymentInvoiceListOutput is the output from step.payment_invoice_list.
+message PaymentInvoiceListOutput {
+  string invoices = 1;
+  int64 count = 2;
+  string error = 3;
+}
+
+// PaymentMethodAttachConfig configures the step.payment_method_attach step.
+message PaymentMethodAttachConfig {
+  string module = 1;
+}
+
+// PaymentMethodAttachInput is the input for step.payment_method_attach.
+message PaymentMethodAttachInput {
+  string customer_id = 1;
+  string payment_method_id = 2;
+}
+
+// PaymentMethodAttachOutput is the output from step.payment_method_attach.
+message PaymentMethodAttachOutput {
+  string payment_method_id = 1;
+  string type = 2;
+  string error = 3;
+}
+
+// PaymentMethodListConfig configures the step.payment_method_list step.
+message PaymentMethodListConfig {
+  string module = 1;
+}
+
+// PaymentMethodListInput is the input for step.payment_method_list.
+message PaymentMethodListInput {
+  string customer_id = 1;
+  string type = 2;
+}
+
+// PaymentMethodListOutput is the output from step.payment_method_list.
+message PaymentMethodListOutput {
+  string payment_methods = 1;
+  int64 count = 2;
+  string error = 3;
+}

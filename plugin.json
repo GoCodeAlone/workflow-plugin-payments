@@ -7,7 +7,7 @@
     "type": "external",
     "tier": "core",
     "private": false,
-    "minEngineVersion": "0.3.12",
+    "minEngineVersion": "0.51.2",
     "keywords": ["payments", "stripe", "paypal", "billing", "checkout", "subscriptions"],
     "homepage": "https://github.com/GoCodeAlone/workflow-plugin-payments",
     "repository": "https://github.com/GoCodeAlone/workflow-plugin-payments",

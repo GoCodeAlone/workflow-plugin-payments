@@ -193,10 +193,11 @@ func typedModuleName(module string) string {
 }
 
 func handleTypedCharge(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentChargeConfig, *paymentsv1.PaymentChargeInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentChargeOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentChargeOutput]{
-			Output: &paymentsv1.PaymentChargeOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentChargeOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.Amount == 0 {
@@ -227,10 +228,11 @@ func handleTypedCharge(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1
 }
 
 func handleTypedCapture(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentCaptureConfig, *paymentsv1.PaymentCaptureInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentCaptureOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentCaptureOutput]{
-			Output: &paymentsv1.PaymentCaptureOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentCaptureOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.ChargeId == "" {
@@ -253,10 +255,11 @@ func handleTypedCapture(ctx context.Context, req sdk.TypedStepRequest[*paymentsv
 }
 
 func handleTypedRefund(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentRefundConfig, *paymentsv1.PaymentRefundInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentRefundOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentRefundOutput]{
-			Output: &paymentsv1.PaymentRefundOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentRefundOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.ChargeId == "" {
@@ -283,10 +286,11 @@ func handleTypedRefund(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1
 }
 
 func handleTypedFeeCalculate(_ context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentFeeCalculateConfig, *paymentsv1.PaymentFeeCalculateInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentFeeCalculateOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentFeeCalculateOutput]{
-			Output: &paymentsv1.PaymentFeeCalculateOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentFeeCalculateOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.Amount == 0 {
@@ -311,10 +315,11 @@ func handleTypedFeeCalculate(_ context.Context, req sdk.TypedStepRequest[*paymen
 }
 
 func handleTypedCustomerEnsure(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentCustomerEnsureConfig, *paymentsv1.PaymentCustomerEnsureInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentCustomerEnsureOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentCustomerEnsureOutput]{
-			Output: &paymentsv1.PaymentCustomerEnsureOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentCustomerEnsureOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.Email == "" {
@@ -341,10 +346,11 @@ func handleTypedCustomerEnsure(ctx context.Context, req sdk.TypedStepRequest[*pa
 }
 
 func handleTypedSubscriptionCreate(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentSubscriptionCreateConfig, *paymentsv1.PaymentSubscriptionCreateInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionCreateOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionCreateOutput]{
-			Output: &paymentsv1.PaymentSubscriptionCreateOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentSubscriptionCreateOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.CustomerId == "" || req.Input.PriceId == "" {
@@ -370,10 +376,11 @@ func handleTypedSubscriptionCreate(ctx context.Context, req sdk.TypedStepRequest
 }
 
 func handleTypedSubscriptionUpdate(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentSubscriptionUpdateConfig, *paymentsv1.PaymentSubscriptionUpdateInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionUpdateOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionUpdateOutput]{
-			Output: &paymentsv1.PaymentSubscriptionUpdateOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentSubscriptionUpdateOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.SubscriptionId == "" {
@@ -398,10 +405,11 @@ func handleTypedSubscriptionUpdate(ctx context.Context, req sdk.TypedStepRequest
 }
 
 func handleTypedSubscriptionCancel(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentSubscriptionCancelConfig, *paymentsv1.PaymentSubscriptionCancelInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionCancelOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionCancelOutput]{
-			Output: &paymentsv1.PaymentSubscriptionCancelOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentSubscriptionCancelOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.SubscriptionId == "" {
@@ -424,10 +432,11 @@ func handleTypedSubscriptionCancel(ctx context.Context, req sdk.TypedStepRequest
 }
 
 func handleTypedCheckoutCreate(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentCheckoutCreateConfig, *paymentsv1.PaymentCheckoutCreateInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentCheckoutCreateOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentCheckoutCreateOutput]{
-			Output: &paymentsv1.PaymentCheckoutCreateOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentCheckoutCreateOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	sess, err := provider.CreateCheckoutSession(ctx, payments.CheckoutParams{
@@ -451,10 +460,11 @@ func handleTypedCheckoutCreate(ctx context.Context, req sdk.TypedStepRequest[*pa
 }
 
 func handleTypedPortalCreate(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentPortalCreateConfig, *paymentsv1.PaymentPortalCreateInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentPortalCreateOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentPortalCreateOutput]{
-			Output: &paymentsv1.PaymentPortalCreateOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentPortalCreateOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.CustomerId == "" {
@@ -477,10 +487,11 @@ func handleTypedPortalCreate(ctx context.Context, req sdk.TypedStepRequest[*paym
 }
 
 func handleTypedWebhookVerify(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentWebhookVerifyConfig, *paymentsv1.PaymentWebhookVerifyInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentWebhookVerifyOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentWebhookVerifyOutput]{
-			Output: &paymentsv1.PaymentWebhookVerifyOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentWebhookVerifyOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	payload := []byte(req.Input.RequestBody)
@@ -523,10 +534,11 @@ func handleTypedWebhookVerify(ctx context.Context, req sdk.TypedStepRequest[*pay
 }
 
 func handleTypedWebhookEndpointEnsure(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentWebhookEndpointEnsureConfig, *paymentsv1.PaymentWebhookEndpointEnsureInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentWebhookEndpointEnsureOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentWebhookEndpointEnsureOutput]{
-			Output: &paymentsv1.PaymentWebhookEndpointEnsureOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentWebhookEndpointEnsureOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.Url == "" {
@@ -564,10 +576,11 @@ func handleTypedWebhookEndpointEnsure(ctx context.Context, req sdk.TypedStepRequ
 }
 
 func handleTypedTransfer(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentTransferConfig, *paymentsv1.PaymentTransferInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentTransferOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentTransferOutput]{
-			Output: &paymentsv1.PaymentTransferOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentTransferOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.Amount == 0 {
@@ -600,10 +613,11 @@ func handleTypedTransfer(ctx context.Context, req sdk.TypedStepRequest[*payments
 }
 
 func handleTypedPayout(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentPayoutConfig, *paymentsv1.PaymentPayoutInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentPayoutOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentPayoutOutput]{
-			Output: &paymentsv1.PaymentPayoutOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentPayoutOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.Amount == 0 {
@@ -631,10 +645,11 @@ func handleTypedPayout(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1
 }
 
 func handleTypedInvoiceList(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentInvoiceListConfig, *paymentsv1.PaymentInvoiceListInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentInvoiceListOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentInvoiceListOutput]{
-			Output: &paymentsv1.PaymentInvoiceListOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentInvoiceListOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	invoices, err := provider.ListInvoices(ctx, payments.InvoiceListParams{
@@ -657,10 +672,11 @@ func handleTypedInvoiceList(ctx context.Context, req sdk.TypedStepRequest[*payme
 }
 
 func handleTypedPaymentMethodAttach(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentMethodAttachConfig, *paymentsv1.PaymentMethodAttachInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentMethodAttachOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentMethodAttachOutput]{
-			Output: &paymentsv1.PaymentMethodAttachOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentMethodAttachOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.CustomerId == "" || req.Input.PaymentMethodId == "" {
@@ -683,10 +699,11 @@ func handleTypedPaymentMethodAttach(ctx context.Context, req sdk.TypedStepReques
 }
 
 func handleTypedPaymentMethodList(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentMethodListConfig, *paymentsv1.PaymentMethodListInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentMethodListOutput], error) {
-	provider, ok := GetProvider(typedModuleName(req.Config.Module))
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
 	if !ok {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentMethodListOutput]{
-			Output: &paymentsv1.PaymentMethodListOutput{Error: "payment provider not found: " + req.Config.Module},
+			Output: &paymentsv1.PaymentMethodListOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
 	if req.Input.CustomerId == "" {

@@ -32,10 +32,9 @@ func TestTypedModuleProvider_UnknownType(t *testing.T) {
 
 func TestTypedModuleProvider_NilConfig(t *testing.T) {
 	p := typedPlugin()
-	// Passing nil config with a missing provider field should fail at Init() — creation succeeds.
+	// CreateTypedModule with nil config fails immediately: newProviderModule validates the
+	// provider name and returns an error when the config is absent.
 	_, err := p.CreateTypedModule("payments.provider", "p", nil)
-	// Creation itself fails because "provider" is empty/missing.
-	// The underlying newProviderModule validates provider name.
 	if err == nil {
 		t.Fatal("expected error for missing provider field in config")
 	}

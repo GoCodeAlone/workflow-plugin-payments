@@ -1,0 +1,68 @@
+name: grpc-version-sync
+
+# Per ADR 0024 (workflow strict-contracts force-cutover):
+# downstream plugins MUST keep their google.golang.org/grpc version in
+# lockstep with the workflow release that defines the proto wire format.
+# Mismatched grpc-go versions break gRPC service-method dispatch silently
+# at runtime.
+#
+# This gate asserts that the plugin's resolved grpc-go version matches
+# the version recorded in the workflow release's grpc-versions.txt artifact.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  GOPRIVATE: github.com/GoCodeAlone/*
+
+jobs:
+  grpc-version-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Configure Git for private repos
+        env:
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if [ -n "${RELEASES_TOKEN}" ]; then
+            git config --global url."https://x-access-token:${RELEASES_TOKEN}@github.com/".insteadOf "https://github.com/"
+          fi
+      - name: Resolve plugin's workflow dep version
+        id: workflow_version
+        run: |
+          set -euo pipefail
+          WORKFLOW_VERSION=$(go list -m -f '{{.Version}}' github.com/GoCodeAlone/workflow)
+          echo "workflow=${WORKFLOW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Plugin pins workflow ${WORKFLOW_VERSION}"
+      - name: Fetch grpc-versions.txt from workflow release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN || secrets.GITHUB_TOKEN }}
+          WORKFLOW_VERSION: ${{ steps.workflow_version.outputs.workflow }}
+        run: |
+          set -euo pipefail
+          gh release download "${WORKFLOW_VERSION}" \
+            --repo GoCodeAlone/workflow \
+            --pattern grpc-versions.txt \
+            --output workflow-grpc-versions.txt
+          echo "--- workflow-grpc-versions.txt ---"
+          cat workflow-grpc-versions.txt
+      - name: Compare grpc-go versions
+        run: |
+          set -euo pipefail
+          PLUGIN_GRPC=$(go list -m -f '{{.Version}}' google.golang.org/grpc)
+          WORKFLOW_GRPC=$(grep '^grpc=' workflow-grpc-versions.txt | cut -d= -f2)
+          echo "Plugin grpc-go: ${PLUGIN_GRPC}"
+          echo "Workflow grpc-go: ${WORKFLOW_GRPC}"
+          if [ "${PLUGIN_GRPC}" != "${WORKFLOW_GRPC}" ]; then
+            echo "::error::grpc-go version mismatch: plugin=${PLUGIN_GRPC} vs workflow=${WORKFLOW_GRPC}. Bump go.mod or sync workflow dep."
+            exit 1
+          fi
+          echo "OK: grpc-go versions match"

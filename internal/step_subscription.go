@@ -28,13 +28,22 @@ func (s *subscriptionCreateStep) Execute(ctx context.Context, _ map[string]any, 
 
 	customerID := resolveValue("customer_id", current, config)
 	priceID := resolveValue("price_id", current, config)
-	if customerID == "" || priceID == "" {
-		return &sdk.StepResult{Output: map[string]any{"error": "customer_id and price_id are required"}}, nil
+	amount := resolveInt64("amount", current, config)
+	currency := resolveValue("currency", current, config)
+	interval := resolveValue("interval", current, config)
+	if customerID == "" {
+		return &sdk.StepResult{Output: map[string]any{"error": "customer_id is required"}}, nil
+	}
+	if priceID == "" && (amount == 0 || currency == "" || interval == "") {
+		return &sdk.StepResult{Output: map[string]any{"error": "price_id is required, or supply amount + currency + interval for inline pricing"}}, nil
 	}
 
 	sub, err := provider.CreateSubscription(ctx, payments.SubscriptionParams{
 		CustomerID: customerID,
 		PriceID:    priceID,
+		Amount:     amount,
+		Currency:   currency,
+		Interval:   interval,
 	})
 	if err != nil {
 		return &sdk.StepResult{Output: map[string]any{"error": err.Error()}}, nil

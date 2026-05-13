@@ -41,6 +41,20 @@ func parseConfigBool(s string, fallback bool) bool {
 	return b
 }
 
+// parseConfigFloat64 parses a string float from a config-side proto field
+// (string typed to absorb YAML template output) into float64. Returns 0 on
+// empty or unparseable input — callers fall back to the Input value.
+func parseConfigFloat64(s string) float64 {
+	if s == "" {
+		return 0
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0
+	}
+	return f
+}
+
 // Compile-time interface checks for typed providers.
 var (
 	_ sdk.TypedModuleProvider = (*paymentsPlugin)(nil)
@@ -229,17 +243,39 @@ func handleTypedCharge(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1
 			Output: &paymentsv1.PaymentChargeOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
-	if req.Input.Amount == 0 {
+	// Config takes precedence over Input for templated YAML configs (BMW pattern).
+	// Config string fields absorb YAML template output; parse to typed values internally.
+	amount := parseConfigInt64(req.Config.Amount)
+	if amount == 0 {
+		amount = req.Input.Amount
+	}
+	currency := req.Config.Currency
+	if currency == "" {
+		currency = req.Input.Currency
+	}
+	customerID := req.Config.CustomerId
+	if customerID == "" {
+		customerID = req.Input.CustomerId
+	}
+	captureMethod := req.Config.CaptureMethod
+	if captureMethod == "" {
+		captureMethod = req.Input.CaptureMethod
+	}
+	description := req.Config.Description
+	if description == "" {
+		description = req.Input.Description
+	}
+	if amount == 0 {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentChargeOutput]{
 			Output: &paymentsv1.PaymentChargeOutput{Error: "amount is required"},
 		}, nil
 	}
 	charge, err := provider.CreateCharge(ctx, payments.ChargeParams{
-		Amount:        req.Input.Amount,
-		Currency:      req.Input.Currency,
-		CustomerID:    req.Input.CustomerId,
-		CaptureMethod: req.Input.CaptureMethod,
-		Description:   req.Input.Description,
+		Amount:        amount,
+		Currency:      currency,
+		CustomerID:    customerID,
+		CaptureMethod: captureMethod,
+		Description:   description,
 	})
 	if err != nil {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentChargeOutput]{
@@ -346,8 +382,9 @@ func handleTypedFeeCalculate(_ context.Context, req sdk.TypedStepRequest[*paymen
 		}, nil
 	}
 	// Config takes precedence over Input for templated YAML configs (BMW pattern).
-	// Config.Amount is `string` so YAML templates ("{{ .body.amount }}") survive
-	// STRICT_PROTO decode; parse to int64 for the provider call.
+	// Config.Amount and Config.PlatformFeePercent are `string` so YAML templates
+	// ("{{ .body.amount }}", "{{ ...platform_fee_percent | default \"5.0\" }}")
+	// survive STRICT_PROTO decode; parse to typed values for the provider call.
 	amount := parseConfigInt64(req.Config.Amount)
 	if amount == 0 {
 		amount = req.Input.Amount
@@ -356,7 +393,7 @@ func handleTypedFeeCalculate(_ context.Context, req sdk.TypedStepRequest[*paymen
 	if currency == "" {
 		currency = req.Input.Currency
 	}
-	platformFeePercent := req.Config.PlatformFeePercent
+	platformFeePercent := parseConfigFloat64(req.Config.PlatformFeePercent)
 	if platformFeePercent == 0 {
 		platformFeePercent = req.Input.PlatformFeePercent
 	}
@@ -389,14 +426,23 @@ func handleTypedCustomerEnsure(ctx context.Context, req sdk.TypedStepRequest[*pa
 			Output: &paymentsv1.PaymentCustomerEnsureOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
-	if req.Input.Email == "" {
+	// Config takes precedence over Input for templated YAML configs (BMW pattern).
+	email := req.Config.Email
+	if email == "" {
+		email = req.Input.Email
+	}
+	name := req.Config.Name
+	if name == "" {
+		name = req.Input.Name
+	}
+	if email == "" {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentCustomerEnsureOutput]{
 			Output: &paymentsv1.PaymentCustomerEnsureOutput{Error: "email is required"},
 		}, nil
 	}
 	cust, err := provider.EnsureCustomer(ctx, payments.CustomerParams{
-		Email: req.Input.Email,
-		Name:  req.Input.Name,
+		Email: email,
+		Name:  name,
 	})
 	if err != nil {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentCustomerEnsureOutput]{
@@ -420,14 +466,35 @@ func handleTypedSubscriptionCreate(ctx context.Context, req sdk.TypedStepRequest
 			Output: &paymentsv1.PaymentSubscriptionCreateOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
-	if req.Input.CustomerId == "" || req.Input.PriceId == "" {
+	// Config takes precedence over Input for templated YAML configs (BMW pattern).
+	// Two pricing modes: PriceID (existing Price) or inline (amount+currency+interval).
+	customerID := req.Config.CustomerId
+	if customerID == "" {
+		customerID = req.Input.CustomerId
+	}
+	priceID := req.Config.PriceId
+	if priceID == "" {
+		priceID = req.Input.PriceId
+	}
+	amount := parseConfigInt64(req.Config.Amount)
+	currency := req.Config.Currency
+	interval := req.Config.Interval
+	if customerID == "" {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionCreateOutput]{
-			Output: &paymentsv1.PaymentSubscriptionCreateOutput{Error: "customer_id and price_id are required"},
+			Output: &paymentsv1.PaymentSubscriptionCreateOutput{Error: "customer_id is required"},
+		}, nil
+	}
+	if priceID == "" && (amount == 0 || currency == "" || interval == "") {
+		return &sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionCreateOutput]{
+			Output: &paymentsv1.PaymentSubscriptionCreateOutput{Error: "price_id is required, or supply amount + currency + interval for inline pricing"},
 		}, nil
 	}
 	sub, err := provider.CreateSubscription(ctx, payments.SubscriptionParams{
-		CustomerID: req.Input.CustomerId,
-		PriceID:    req.Input.PriceId,
+		CustomerID: customerID,
+		PriceID:    priceID,
+		Amount:     amount,
+		Currency:   currency,
+		Interval:   interval,
 	})
 	if err != nil {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionCreateOutput]{
@@ -616,28 +683,40 @@ func handleTypedWebhookEndpointEnsure(ctx context.Context, req sdk.TypedStepRequ
 			Output: &paymentsv1.PaymentWebhookEndpointEnsureOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
-	if req.Input.Url == "" {
+	// Config takes precedence over Input for templated YAML configs (BMW pattern).
+	url := req.Config.Url
+	if url == "" {
+		url = req.Input.Url
+	}
+	events := req.Config.Events
+	if len(events) == 0 {
+		events = req.Input.Events
+	}
+	description := req.Config.Description
+	if description == "" {
+		description = req.Input.Description
+	}
+	mode := req.Config.Mode
+	if mode == "" {
+		mode = req.Input.Mode
+	}
+	if url == "" {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentWebhookEndpointEnsureOutput]{
 			Output:       &paymentsv1.PaymentWebhookEndpointEnsureOutput{Error: "url is required"},
 			StopPipeline: true,
 		}, nil
 	}
-	if len(req.Input.Events) == 0 {
+	if len(events) == 0 {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentWebhookEndpointEnsureOutput]{
 			Output:       &paymentsv1.PaymentWebhookEndpointEnsureOutput{Error: "events list is required"},
 			StopPipeline: true,
 		}, nil
 	}
-	// Config.Description takes precedence over Input.Description for templated YAML configs (BMW pattern).
-	description := req.Config.Description
-	if description == "" {
-		description = req.Input.Description
-	}
 	out, err := provider.WebhookEndpointEnsure(ctx, payments.WebhookEndpointEnsureParams{
-		URL:         req.Input.Url,
-		Events:      req.Input.Events,
+		URL:         url,
+		Events:      events,
 		Description: description,
-		Mode:        req.Input.Mode,
+		Mode:        mode,
 	})
 	if err != nil {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentWebhookEndpointEnsureOutput]{

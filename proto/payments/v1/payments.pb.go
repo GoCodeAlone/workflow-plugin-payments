@@ -132,8 +132,25 @@ func (x *ProviderConfig) GetWebhookId() string {
 
 // PaymentChargeConfig configures the step.payment_charge step.
 type PaymentChargeConfig struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Module        string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Module string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
+	// amount is the charge amount in the smallest currency unit, expressed as a
+	// string so YAML templates (which always render as strings) can supply it
+	// directly under STRICT_PROTO dispatch. When non-empty, takes precedence
+	// over PaymentChargeInput.amount. Handlers parse via strconv.ParseInt.
+	Amount string `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	// currency is the ISO 4217 currency code. When non-empty, takes precedence
+	// over PaymentChargeInput.currency.
+	Currency string `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	// capture_method is "automatic" or "manual". When non-empty, takes
+	// precedence over PaymentChargeInput.capture_method.
+	CaptureMethod string `protobuf:"bytes,4,opt,name=capture_method,json=captureMethod,proto3" json:"capture_method,omitempty"`
+	// description is an optional description attached to the charge. When
+	// non-empty, takes precedence over PaymentChargeInput.description.
+	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	// customer_id is the provider customer ID to attach the charge to. When
+	// non-empty, takes precedence over PaymentChargeInput.customer_id.
+	CustomerId    string `protobuf:"bytes,6,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -171,6 +188,41 @@ func (*PaymentChargeConfig) Descriptor() ([]byte, []int) {
 func (x *PaymentChargeConfig) GetModule() string {
 	if x != nil {
 		return x.Module
+	}
+	return ""
+}
+
+func (x *PaymentChargeConfig) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *PaymentChargeConfig) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *PaymentChargeConfig) GetCaptureMethod() string {
+	if x != nil {
+		return x.CaptureMethod
+	}
+	return ""
+}
+
+func (x *PaymentChargeConfig) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *PaymentChargeConfig) GetCustomerId() string {
+	if x != nil {
+		return x.CustomerId
 	}
 	return ""
 }
@@ -722,9 +774,13 @@ type PaymentFeeCalculateConfig struct {
 	// currency is the ISO 4217 currency code. When non-empty, takes precedence
 	// over PaymentFeeCalculateInput.currency.
 	Currency string `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
-	// platform_fee_percent is the platform fee percentage (0-100). When
-	// non-zero, takes precedence over PaymentFeeCalculateInput.platform_fee_percent.
-	PlatformFeePercent float64 `protobuf:"fixed64,4,opt,name=platform_fee_percent,json=platformFeePercent,proto3" json:"platform_fee_percent,omitempty"`
+	// platform_fee_percent is the platform fee percentage (0-100), expressed
+	// as a string so YAML templates (which always render as strings) can supply
+	// it directly under STRICT_PROTO dispatch. When non-empty, takes precedence
+	// over PaymentFeeCalculateInput.platform_fee_percent. Handlers parse via
+	// strconv.ParseFloat. v0.4.5: type changed from double → string to fix BMW
+	// template-decoded literal rejection.
+	PlatformFeePercent string `protobuf:"bytes,4,opt,name=platform_fee_percent,json=platformFeePercent,proto3" json:"platform_fee_percent,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -780,11 +836,11 @@ func (x *PaymentFeeCalculateConfig) GetCurrency() string {
 	return ""
 }
 
-func (x *PaymentFeeCalculateConfig) GetPlatformFeePercent() float64 {
+func (x *PaymentFeeCalculateConfig) GetPlatformFeePercent() string {
 	if x != nil {
 		return x.PlatformFeePercent
 	}
-	return 0
+	return ""
 }
 
 // PaymentFeeCalculateInput is the input for step.payment_fee_calculate.
@@ -927,8 +983,14 @@ func (x *PaymentFeeCalculateOutput) GetError() string {
 
 // PaymentCustomerEnsureConfig configures the step.payment_customer_ensure step.
 type PaymentCustomerEnsureConfig struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Module        string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Module string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
+	// email is the customer email. When non-empty, takes precedence over
+	// PaymentCustomerEnsureInput.email (allows templating in YAML).
+	Email string `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	// name is the customer display name. When non-empty, takes precedence over
+	// PaymentCustomerEnsureInput.name (allows templating in YAML).
+	Name          string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -966,6 +1028,20 @@ func (*PaymentCustomerEnsureConfig) Descriptor() ([]byte, []int) {
 func (x *PaymentCustomerEnsureConfig) GetModule() string {
 	if x != nil {
 		return x.Module
+	}
+	return ""
+}
+
+func (x *PaymentCustomerEnsureConfig) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *PaymentCustomerEnsureConfig) GetName() string {
+	if x != nil {
+		return x.Name
 	}
 	return ""
 }
@@ -1094,8 +1170,27 @@ func (x *PaymentCustomerEnsureOutput) GetError() string {
 
 // PaymentSubscriptionCreateConfig configures the step.payment_subscription_create step.
 type PaymentSubscriptionCreateConfig struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Module        string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Module string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
+	// customer_id is the provider customer ID to subscribe. When non-empty,
+	// takes precedence over PaymentSubscriptionCreateInput.customer_id (allows
+	// templating in YAML).
+	CustomerId string `protobuf:"bytes,2,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"`
+	// price_id is the provider price ID. When non-empty, takes precedence over
+	// PaymentSubscriptionCreateInput.price_id. Inline-pricing callers leave
+	// empty and supply amount + currency + interval instead.
+	PriceId string `protobuf:"bytes,3,opt,name=price_id,json=priceId,proto3" json:"price_id,omitempty"`
+	// amount is the per-interval amount in the smallest currency unit,
+	// expressed as a string so YAML templates can supply it directly under
+	// STRICT_PROTO dispatch. Used for inline price_data when price_id is empty.
+	// Handlers parse via strconv.ParseInt.
+	Amount string `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	// currency is the ISO 4217 currency code. Used for inline price_data when
+	// price_id is empty.
+	Currency string `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
+	// interval is the billing frequency: day|week|month|year. Used for inline
+	// price_data when price_id is empty.
+	Interval      string `protobuf:"bytes,6,opt,name=interval,proto3" json:"interval,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1133,6 +1228,41 @@ func (*PaymentSubscriptionCreateConfig) Descriptor() ([]byte, []int) {
 func (x *PaymentSubscriptionCreateConfig) GetModule() string {
 	if x != nil {
 		return x.Module
+	}
+	return ""
+}
+
+func (x *PaymentSubscriptionCreateConfig) GetCustomerId() string {
+	if x != nil {
+		return x.CustomerId
+	}
+	return ""
+}
+
+func (x *PaymentSubscriptionCreateConfig) GetPriceId() string {
+	if x != nil {
+		return x.PriceId
+	}
+	return ""
+}
+
+func (x *PaymentSubscriptionCreateConfig) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *PaymentSubscriptionCreateConfig) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *PaymentSubscriptionCreateConfig) GetInterval() string {
+	if x != nil {
+		return x.Interval
 	}
 	return ""
 }
@@ -2142,7 +2272,18 @@ type PaymentWebhookEndpointEnsureConfig struct {
 	// description is the human-readable description stored on the provider
 	// endpoint. When non-empty, takes precedence over
 	// PaymentWebhookEndpointEnsureInput.description.
-	Description   string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// url is the https URL the provider POSTs events to. When non-empty,
+	// takes precedence over PaymentWebhookEndpointEnsureInput.url (allows
+	// operator pipelines to supply it inline under STRICT_PROTO dispatch).
+	Url string `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
+	// events is the list of provider event names the endpoint subscribes to.
+	// When non-empty, takes precedence over PaymentWebhookEndpointEnsureInput.events.
+	// Repeated to match BMW's YAML-list shape (events: [a, b]).
+	Events []string `protobuf:"bytes,4,rep,name=events,proto3" json:"events,omitempty"`
+	// mode is "ensure" (default) or "replace". When non-empty, takes precedence
+	// over PaymentWebhookEndpointEnsureInput.mode.
+	Mode          string `protobuf:"bytes,5,opt,name=mode,proto3" json:"mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2187,6 +2328,27 @@ func (x *PaymentWebhookEndpointEnsureConfig) GetModule() string {
 func (x *PaymentWebhookEndpointEnsureConfig) GetDescription() string {
 	if x != nil {
 		return x.Description
+	}
+	return ""
+}
+
+func (x *PaymentWebhookEndpointEnsureConfig) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *PaymentWebhookEndpointEnsureConfig) GetEvents() []string {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *PaymentWebhookEndpointEnsureConfig) GetMode() string {
+	if x != nil {
+		return x.Mode
 	}
 	return ""
 }
@@ -3187,9 +3349,15 @@ const file_proto_payments_v1_payments_proto_rawDesc = "" +
 	"\rclient_secret\x18\x06 \x01(\tR\fclientSecret\x12 \n" +
 	"\venvironment\x18\a \x01(\tR\venvironment\x12\x1d\n" +
 	"\n" +
-	"webhook_id\x18\b \x01(\tR\twebhookId\"-\n" +
+	"webhook_id\x18\b \x01(\tR\twebhookId\"\xcb\x01\n" +
 	"\x13PaymentChargeConfig\x12\x16\n" +
-	"\x06module\x18\x01 \x01(\tR\x06module\"\xb2\x01\n" +
+	"\x06module\x18\x01 \x01(\tR\x06module\x12\x16\n" +
+	"\x06amount\x18\x02 \x01(\tR\x06amount\x12\x1a\n" +
+	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12%\n" +
+	"\x0ecapture_method\x18\x04 \x01(\tR\rcaptureMethod\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x1f\n" +
+	"\vcustomer_id\x18\x06 \x01(\tR\n" +
+	"customerId\"\xb2\x01\n" +
 	"\x12PaymentChargeInput\x12\x16\n" +
 	"\x06amount\x18\x01 \x01(\x03R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x02 \x01(\tR\bcurrency\x12\x1f\n" +
@@ -3231,7 +3399,7 @@ const file_proto_payments_v1_payments_proto_rawDesc = "" +
 	"\x06module\x18\x01 \x01(\tR\x06module\x12\x16\n" +
 	"\x06amount\x18\x02 \x01(\tR\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x120\n" +
-	"\x14platform_fee_percent\x18\x04 \x01(\x01R\x12platformFeePercent\"\x80\x01\n" +
+	"\x14platform_fee_percent\x18\x04 \x01(\tR\x12platformFeePercent\"\x80\x01\n" +
 	"\x18PaymentFeeCalculateInput\x12\x16\n" +
 	"\x06amount\x18\x01 \x01(\x03R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x02 \x01(\tR\bcurrency\x120\n" +
@@ -3241,9 +3409,11 @@ const file_proto_payments_v1_payments_proto_rawDesc = "" +
 	"\x0eprocessing_fee\x18\x02 \x01(\x03R\rprocessingFee\x12!\n" +
 	"\fplatform_fee\x18\x03 \x01(\x03R\vplatformFee\x12!\n" +
 	"\ftotal_charge\x18\x04 \x01(\x03R\vtotalCharge\x12\x14\n" +
-	"\x05error\x18\x05 \x01(\tR\x05error\"5\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\"_\n" +
 	"\x1bPaymentCustomerEnsureConfig\x12\x16\n" +
-	"\x06module\x18\x01 \x01(\tR\x06module\"F\n" +
+	"\x06module\x18\x01 \x01(\tR\x06module\x12\x14\n" +
+	"\x05email\x18\x02 \x01(\tR\x05email\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"F\n" +
 	"\x1aPaymentCustomerEnsureInput\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"~\n" +
@@ -3252,9 +3422,15 @@ const file_proto_payments_v1_payments_proto_rawDesc = "" +
 	"customerId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\"9\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\xc5\x01\n" +
 	"\x1fPaymentSubscriptionCreateConfig\x12\x16\n" +
-	"\x06module\x18\x01 \x01(\tR\x06module\"\\\n" +
+	"\x06module\x18\x01 \x01(\tR\x06module\x12\x1f\n" +
+	"\vcustomer_id\x18\x02 \x01(\tR\n" +
+	"customerId\x12\x19\n" +
+	"\bprice_id\x18\x03 \x01(\tR\apriceId\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\tR\x06amount\x12\x1a\n" +
+	"\bcurrency\x18\x05 \x01(\tR\bcurrency\x12\x1a\n" +
+	"\binterval\x18\x06 \x01(\tR\binterval\"\\\n" +
 	"\x1ePaymentSubscriptionCreateInput\x12\x1f\n" +
 	"\vcustomer_id\x18\x01 \x01(\tR\n" +
 	"customerId\x12\x19\n" +
@@ -3325,10 +3501,13 @@ const file_proto_payments_v1_payments_proto_rawDesc = "" +
 	"\n" +
 	"event_type\x18\x01 \x01(\tR\teventType\x12\x19\n" +
 	"\bevent_id\x18\x02 \x01(\tR\aeventId\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"^\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\x9c\x01\n" +
 	"\"PaymentWebhookEndpointEnsureConfig\x12\x16\n" +
 	"\x06module\x18\x01 \x01(\tR\x06module\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\"\x83\x01\n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x10\n" +
+	"\x03url\x18\x03 \x01(\tR\x03url\x12\x16\n" +
+	"\x06events\x18\x04 \x03(\tR\x06events\x12\x12\n" +
+	"\x04mode\x18\x05 \x01(\tR\x04mode\"\x83\x01\n" +
 	"!PaymentWebhookEndpointEnsureInput\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x12\x16\n" +
 	"\x06events\x18\x02 \x03(\tR\x06events\x12 \n" +

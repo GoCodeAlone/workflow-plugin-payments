@@ -20,22 +20,25 @@ pipelines:
                 path: /compat/payments
                 method: POST
         steps:
-            # Exercises PaymentFeeCalculateConfig.{amount as string,
-            # currency, platform_fee_percent}. v0.4.4: amount is a string so
-            # BMW templates ("{{ .body.amount }}") survive STRICT_PROTO decode.
+            # Exercises PaymentFeeCalculateConfig.{amount, currency,
+            # platform_fee_percent} — all strings as of v0.4.5 for BMW template
+            # compatibility ('{{ ...platform_fee_percent | default "5.0" }}').
             - name: calc_fees
               type: step.payment_fee_calculate
               config:
                 module: stripe
                 amount: "1000"
                 currency: usd
-                platform_fee_percent: 5.0
+                platform_fee_percent: "5.0"
 
+            # Exercises PaymentChargeConfig.{amount, currency, capture_method,
+            # description, customer_id} — added in v0.4.5 as strings so BMW
+            # templates survive STRICT_PROTO decode.
             - name: create_charge
               type: step.payment_charge
               config:
                 module: stripe
-                amount: 1000
+                amount: "1000"
                 currency: usd
                 capture_method: manual
                 description: "compat-check charge"
@@ -58,13 +61,42 @@ pipelines:
                 amount: "500"
                 reason: requested_by_customer
 
+    compat-customer-and-subscription:
+        trigger:
+            type: http
+            config:
+                path: /compat/recurring
+                method: POST
+        steps:
+            # Exercises PaymentCustomerEnsureConfig.{email, name} added in v0.4.5.
+            - name: ensure_customer
+              type: step.payment_customer_ensure
+              config:
+                module: stripe
+                email: "compat@example.test"
+                name: "Compat User"
+
+            # Exercises PaymentSubscriptionCreateConfig.{customer_id, amount,
+            # currency, interval} added in v0.4.5 (inline-pricing mode). All
+            # strings so BMW templates render directly.
+            - name: create_subscription
+              type: step.payment_subscription_create
+              config:
+                module: stripe
+                customer_id: "cus_compat"
+                amount: "1500"
+                currency: usd
+                interval: month
+
     compat-webhook-ensure:
         trigger:
             type: cli
             config:
                 command: compat-ensure-webhook
         steps:
-            # Exercises PaymentWebhookEndpointEnsureConfig.description.
+            # Exercises PaymentWebhookEndpointEnsureConfig.{url, events, mode,
+            # description}. v0.4.5 adds url+events+mode so the entire request
+            # can be supplied via config: (BMW operator-pipeline pattern).
             - name: ensure_endpoint
               type: step.payment_webhook_endpoint_ensure
               config:
@@ -72,7 +104,9 @@ pipelines:
                 url: "https://example.test/webhook"
                 events:
                     - payment_intent.succeeded
+                    - issuing_authorization.request
                 description: "compat-check webhook"
+                mode: ensure
 
     # Exercises PaymentSubscriptionCancelConfig.{subscription_id,
     # cancel_at_period_end as string} added in v0.4.4. The bool field is

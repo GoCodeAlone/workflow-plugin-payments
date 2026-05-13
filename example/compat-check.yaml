@@ -20,12 +20,14 @@ pipelines:
                 path: /compat/payments
                 method: POST
         steps:
-            # Exercises PaymentFeeCalculateConfig.{amount, currency, platform_fee_percent}.
+            # Exercises PaymentFeeCalculateConfig.{amount as string,
+            # currency, platform_fee_percent}. v0.4.4: amount is a string so
+            # BMW templates ("{{ .body.amount }}") survive STRICT_PROTO decode.
             - name: calc_fees
               type: step.payment_fee_calculate
               config:
                 module: stripe
-                amount: 1000
+                amount: "1000"
                 currency: usd
                 platform_fee_percent: 5.0
 
@@ -46,11 +48,14 @@ pipelines:
                 charge_id: "ch_test_compat"
                 amount: 1000
 
+            # Exercises PaymentRefundConfig.{charge_id, amount as string, reason}
+            # added in v0.4.4. Amount is string for BMW template compatibility.
             - name: refund_payment
               type: step.payment_refund
               config:
                 module: stripe
                 charge_id: "ch_test_compat"
+                amount: "500"
                 reason: requested_by_customer
 
     compat-webhook-ensure:
@@ -68,3 +73,19 @@ pipelines:
                 events:
                     - payment_intent.succeeded
                 description: "compat-check webhook"
+
+    # Exercises PaymentSubscriptionCancelConfig.{subscription_id,
+    # cancel_at_period_end as string} added in v0.4.4. The bool field is
+    # a string so YAML templates can render it directly.
+    compat-subscription-cancel:
+        trigger:
+            type: cli
+            config:
+                command: compat-cancel-subscription
+        steps:
+            - name: cancel_subscription
+              type: step.payment_subscription_cancel
+              config:
+                module: stripe
+                subscription_id: "sub_test_compat"
+                cancel_at_period_end: "true"

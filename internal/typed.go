@@ -5,12 +5,41 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/GoCodeAlone/workflow-plugin-payments/payments"
 	paymentsv1 "github.com/GoCodeAlone/workflow-plugin-payments/proto/payments/v1"
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 	"google.golang.org/protobuf/types/known/anypb"
 )
+
+// parseConfigInt64 parses a string amount from a config-side proto field
+// (string typed to absorb YAML template output) into int64. Returns 0 on
+// empty or unparseable input — callers fall back to the Input value.
+func parseConfigInt64(s string) int64 {
+	if s == "" {
+		return 0
+	}
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// parseConfigBool parses a string boolean from a config-side proto field
+// (string typed to absorb YAML template output) into bool. Returns the
+// supplied fallback when the value is empty or unparseable.
+func parseConfigBool(s string, fallback bool) bool {
+	if s == "" {
+		return fallback
+	}
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		return fallback
+	}
+	return b
+}
 
 // Compile-time interface checks for typed providers.
 var (
@@ -271,15 +300,29 @@ func handleTypedRefund(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1
 			Output: &paymentsv1.PaymentRefundOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
-	if req.Input.ChargeId == "" {
+	// Config takes precedence over Input for templated YAML configs (BMW pattern).
+	// Config.Amount is `string` so YAML templates survive STRICT_PROTO decode.
+	chargeID := req.Config.ChargeId
+	if chargeID == "" {
+		chargeID = req.Input.ChargeId
+	}
+	amount := parseConfigInt64(req.Config.Amount)
+	if amount == 0 {
+		amount = req.Input.Amount
+	}
+	reason := req.Config.Reason
+	if reason == "" {
+		reason = req.Input.Reason
+	}
+	if chargeID == "" {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentRefundOutput]{
 			Output: &paymentsv1.PaymentRefundOutput{Error: "charge_id is required"},
 		}, nil
 	}
 	re, err := provider.RefundCharge(ctx, payments.RefundParams{
-		ChargeID: req.Input.ChargeId,
-		Amount:   req.Input.Amount,
-		Reason:   req.Input.Reason,
+		ChargeID: chargeID,
+		Amount:   amount,
+		Reason:   reason,
 	})
 	if err != nil {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentRefundOutput]{
@@ -303,7 +346,9 @@ func handleTypedFeeCalculate(_ context.Context, req sdk.TypedStepRequest[*paymen
 		}, nil
 	}
 	// Config takes precedence over Input for templated YAML configs (BMW pattern).
-	amount := req.Config.Amount
+	// Config.Amount is `string` so YAML templates ("{{ .body.amount }}") survive
+	// STRICT_PROTO decode; parse to int64 for the provider call.
+	amount := parseConfigInt64(req.Config.Amount)
 	if amount == 0 {
 		amount = req.Input.Amount
 	}
@@ -434,12 +479,20 @@ func handleTypedSubscriptionCancel(ctx context.Context, req sdk.TypedStepRequest
 			Output: &paymentsv1.PaymentSubscriptionCancelOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
-	if req.Input.SubscriptionId == "" {
+	// Config takes precedence over Input for templated YAML configs (BMW pattern).
+	// Config.CancelAtPeriodEnd is `string` so YAML templates ("true") survive
+	// STRICT_PROTO decode; parse to bool, falling back to the Input value.
+	subscriptionID := req.Config.SubscriptionId
+	if subscriptionID == "" {
+		subscriptionID = req.Input.SubscriptionId
+	}
+	cancelAtPeriodEnd := parseConfigBool(req.Config.CancelAtPeriodEnd, req.Input.CancelAtPeriodEnd)
+	if subscriptionID == "" {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionCancelOutput]{
 			Output: &paymentsv1.PaymentSubscriptionCancelOutput{Error: "subscription_id is required"},
 		}, nil
 	}
-	sub, err := provider.CancelSubscription(ctx, req.Input.SubscriptionId, req.Input.CancelAtPeriodEnd)
+	sub, err := provider.CancelSubscription(ctx, subscriptionID, cancelAtPeriodEnd)
 	if err != nil {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentSubscriptionCancelOutput]{
 			Output: &paymentsv1.PaymentSubscriptionCancelOutput{Error: err.Error()},

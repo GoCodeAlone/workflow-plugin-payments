@@ -511,8 +511,21 @@ func (x *PaymentCaptureOutput) GetError() string {
 
 // PaymentRefundConfig configures the step.payment_refund step.
 type PaymentRefundConfig struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Module        string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Module string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
+	// charge_id is the charge/PaymentIntent ID to refund. When set, takes
+	// precedence over PaymentRefundInput.charge_id (allows templating in YAML).
+	ChargeId string `protobuf:"bytes,2,opt,name=charge_id,json=chargeId,proto3" json:"charge_id,omitempty"`
+	// amount is the partial-refund amount in the smallest currency unit,
+	// expressed as a string so YAML templates (which always render as strings)
+	// can supply it directly. Empty/missing means full-charge refund. When
+	// non-empty, takes precedence over PaymentRefundInput.amount. Handlers
+	// parse via strconv.ParseInt.
+	Amount string `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	// reason is an optional refund reason (e.g. requested_by_customer,
+	// duplicate, fraudulent). When non-empty, takes precedence over
+	// PaymentRefundInput.reason.
+	Reason        string `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -550,6 +563,27 @@ func (*PaymentRefundConfig) Descriptor() ([]byte, []int) {
 func (x *PaymentRefundConfig) GetModule() string {
 	if x != nil {
 		return x.Module
+	}
+	return ""
+}
+
+func (x *PaymentRefundConfig) GetChargeId() string {
+	if x != nil {
+		return x.ChargeId
+	}
+	return ""
+}
+
+func (x *PaymentRefundConfig) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *PaymentRefundConfig) GetReason() string {
+	if x != nil {
+		return x.Reason
 	}
 	return ""
 }
@@ -680,9 +714,11 @@ func (x *PaymentRefundOutput) GetError() string {
 type PaymentFeeCalculateConfig struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Module string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
-	// amount is the gross amount in the smallest currency unit. When non-zero,
-	// takes precedence over PaymentFeeCalculateInput.amount.
-	Amount int64 `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	// amount is the gross amount in the smallest currency unit, expressed as a
+	// string so YAML templates (which always render as strings) can supply it
+	// directly under STRICT_PROTO dispatch. When non-empty, takes precedence
+	// over PaymentFeeCalculateInput.amount. Handlers parse via strconv.ParseInt.
+	Amount string `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`
 	// currency is the ISO 4217 currency code. When non-empty, takes precedence
 	// over PaymentFeeCalculateInput.currency.
 	Currency string `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
@@ -730,11 +766,11 @@ func (x *PaymentFeeCalculateConfig) GetModule() string {
 	return ""
 }
 
-func (x *PaymentFeeCalculateConfig) GetAmount() int64 {
+func (x *PaymentFeeCalculateConfig) GetAmount() string {
 	if x != nil {
 		return x.Amount
 	}
-	return 0
+	return ""
 }
 
 func (x *PaymentFeeCalculateConfig) GetCurrency() string {
@@ -1376,10 +1412,21 @@ func (x *PaymentSubscriptionUpdateOutput) GetError() string {
 
 // PaymentSubscriptionCancelConfig configures the step.payment_subscription_cancel step.
 type PaymentSubscriptionCancelConfig struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Module        string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Module string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
+	// subscription_id is the provider subscription ID to cancel. When non-empty,
+	// takes precedence over PaymentSubscriptionCancelInput.subscription_id
+	// (allows templating in YAML).
+	SubscriptionId string `protobuf:"bytes,2,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
+	// cancel_at_period_end controls whether the subscription remains active
+	// until the end of the current billing period. Expressed as a string so
+	// YAML templates (e.g. "true") can supply it directly under STRICT_PROTO
+	// dispatch. When non-empty, takes precedence over
+	// PaymentSubscriptionCancelInput.cancel_at_period_end. Handlers parse via
+	// strconv.ParseBool.
+	CancelAtPeriodEnd string `protobuf:"bytes,3,opt,name=cancel_at_period_end,json=cancelAtPeriodEnd,proto3" json:"cancel_at_period_end,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *PaymentSubscriptionCancelConfig) Reset() {
@@ -1415,6 +1462,20 @@ func (*PaymentSubscriptionCancelConfig) Descriptor() ([]byte, []int) {
 func (x *PaymentSubscriptionCancelConfig) GetModule() string {
 	if x != nil {
 		return x.Module
+	}
+	return ""
+}
+
+func (x *PaymentSubscriptionCancelConfig) GetSubscriptionId() string {
+	if x != nil {
+		return x.SubscriptionId
+	}
+	return ""
+}
+
+func (x *PaymentSubscriptionCancelConfig) GetCancelAtPeriodEnd() string {
+	if x != nil {
+		return x.CancelAtPeriodEnd
 	}
 	return ""
 }
@@ -3152,9 +3213,12 @@ const file_proto_payments_v1_payments_proto_rawDesc = "" +
 	"\x14PaymentCaptureOutput\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x16\n" +
 	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"-\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"z\n" +
 	"\x13PaymentRefundConfig\x12\x16\n" +
-	"\x06module\x18\x01 \x01(\tR\x06module\"a\n" +
+	"\x06module\x18\x01 \x01(\tR\x06module\x12\x1b\n" +
+	"\tcharge_id\x18\x02 \x01(\tR\bchargeId\x12\x16\n" +
+	"\x06amount\x18\x03 \x01(\tR\x06amount\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\"a\n" +
 	"\x12PaymentRefundInput\x12\x1b\n" +
 	"\tcharge_id\x18\x01 \x01(\tR\bchargeId\x12\x16\n" +
 	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x16\n" +
@@ -3165,7 +3229,7 @@ const file_proto_payments_v1_payments_proto_rawDesc = "" +
 	"\x05error\x18\x03 \x01(\tR\x05error\"\x99\x01\n" +
 	"\x19PaymentFeeCalculateConfig\x12\x16\n" +
 	"\x06module\x18\x01 \x01(\tR\x06module\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x02 \x01(\tR\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x120\n" +
 	"\x14platform_fee_percent\x18\x04 \x01(\x01R\x12platformFeePercent\"\x80\x01\n" +
 	"\x18PaymentFeeCalculateInput\x12\x16\n" +
@@ -3207,9 +3271,11 @@ const file_proto_payments_v1_payments_proto_rawDesc = "" +
 	"\x1fPaymentSubscriptionUpdateOutput\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"9\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\x93\x01\n" +
 	"\x1fPaymentSubscriptionCancelConfig\x12\x16\n" +
-	"\x06module\x18\x01 \x01(\tR\x06module\"z\n" +
+	"\x06module\x18\x01 \x01(\tR\x06module\x12'\n" +
+	"\x0fsubscription_id\x18\x02 \x01(\tR\x0esubscriptionId\x12/\n" +
+	"\x14cancel_at_period_end\x18\x03 \x01(\tR\x11cancelAtPeriodEnd\"z\n" +
 	"\x1ePaymentSubscriptionCancelInput\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12/\n" +
 	"\x14cancel_at_period_end\x18\x02 \x01(\bR\x11cancelAtPeriodEnd\"x\n" +

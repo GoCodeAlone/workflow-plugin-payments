@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/GoCodeAlone/workflow-plugin-payments/payments"
 	paymentsv1 "github.com/GoCodeAlone/workflow-plugin-payments/proto/payments/v1"
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -299,12 +300,13 @@ func TestTypedCapture_Handler_ConfigAmount(t *testing.T) {
 
 // TestTypedFeeCalculate_Handler_ConfigFields verifies amount/currency/
 // platform_fee_percent flow from Config when set, falling back to Input.
+// v0.4.4: Config.Amount is now `string` (BMW templates render as strings).
 func TestTypedFeeCalculate_Handler_ConfigFields(t *testing.T) {
 	setupMockModule(t, "typed-fee-cfg")
 	result, err := handleTypedFeeCalculate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentFeeCalculateConfig, *paymentsv1.PaymentFeeCalculateInput]{
 		Config: &paymentsv1.PaymentFeeCalculateConfig{
 			Module:             "typed-fee-cfg",
-			Amount:             1000,
+			Amount:             "1000",
 			Currency:           "usd",
 			PlatformFeePercent: 5.0,
 		},
@@ -369,5 +371,203 @@ func TestTypedWebhookEndpointEnsure_Handler_ConfigDescription(t *testing.T) {
 	}
 	if result.Output.EndpointId == "" {
 		t.Error("expected endpoint_id")
+	}
+}
+
+// --- v0.4.4: string-typed Config amount/bool fields (BMW YAML-template pattern) ---
+
+// TestParseConfigInt64 covers the helper's contract: empty/garbage→0,
+// well-formed numeric string→int64.
+func TestParseConfigInt64(t *testing.T) {
+	cases := map[string]int64{
+		"":      0,
+		"0":     0,
+		"42":    42,
+		"4200":  4200,
+		"-100":  -100,
+		"abc":   0,
+		"1.5":   0,
+		"99 ":   0, // surrounding whitespace not tolerated
+	}
+	for in, want := range cases {
+		if got := parseConfigInt64(in); got != want {
+			t.Errorf("parseConfigInt64(%q) = %d, want %d", in, got, want)
+		}
+	}
+}
+
+// TestParseConfigBool covers the helper's contract: empty/garbage→fallback,
+// well-formed bool string→parsed bool.
+func TestParseConfigBool(t *testing.T) {
+	type c struct {
+		in       string
+		fallback bool
+		want     bool
+	}
+	cases := []c{
+		{"", false, false},
+		{"", true, true},
+		{"true", false, true},
+		{"false", true, false},
+		{"True", false, true},
+		{"1", false, true},
+		{"0", true, false},
+		{"yes", true, true},  // garbage → fallback
+		{"nope", false, false},
+	}
+	for _, tc := range cases {
+		if got := parseConfigBool(tc.in, tc.fallback); got != tc.want {
+			t.Errorf("parseConfigBool(%q, %v) = %v, want %v", tc.in, tc.fallback, got, tc.want)
+		}
+	}
+}
+
+// TestTypedFeeCalculate_Handler_ConfigStringAmount verifies that a templated
+// string amount like "1000" decodes correctly and reaches the provider as
+// int64 (closes the v0.4.3 strict-proto decode failure on BMW templates).
+func TestTypedFeeCalculate_Handler_ConfigStringAmount(t *testing.T) {
+	setupMockModule(t, "typed-fee-strcfg")
+	result, err := handleTypedFeeCalculate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentFeeCalculateConfig, *paymentsv1.PaymentFeeCalculateInput]{
+		Config: &paymentsv1.PaymentFeeCalculateConfig{
+			Module:             "typed-fee-strcfg",
+			Amount:             "1000", // BMW renders "{{ .body.amount }}" as a string
+			Currency:           "usd",
+			PlatformFeePercent: 5.0,
+		},
+		Input: &paymentsv1.PaymentFeeCalculateInput{},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected output error: %s", result.Output.Error)
+	}
+	if result.Output.TotalCharge == 0 {
+		t.Error("expected non-zero total_charge from parsed string amount")
+	}
+}
+
+// TestTypedFeeCalculate_Handler_ConfigStringAmountInvalid verifies that an
+// unparseable Config.Amount falls back to Input.Amount rather than crashing.
+func TestTypedFeeCalculate_Handler_ConfigStringAmountInvalid(t *testing.T) {
+	setupMockModule(t, "typed-fee-strcfg-bad")
+	result, err := handleTypedFeeCalculate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentFeeCalculateConfig, *paymentsv1.PaymentFeeCalculateInput]{
+		Config: &paymentsv1.PaymentFeeCalculateConfig{
+			Module: "typed-fee-strcfg-bad",
+			Amount: "not-a-number",
+		},
+		Input: &paymentsv1.PaymentFeeCalculateInput{Amount: 2000, Currency: "usd"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected output error: %s", result.Output.Error)
+	}
+	if result.Output.TotalCharge == 0 {
+		t.Error("expected non-zero total_charge from Input fallback when Config.Amount is unparseable")
+	}
+}
+
+// TestTypedRefund_Handler_ConfigFields verifies all three new Config fields
+// (charge_id, amount as string, reason) take precedence over Input.
+func TestTypedRefund_Handler_ConfigFields(t *testing.T) {
+	mock := setupMockModule(t, "typed-refund-cfg")
+	charge, _ := mock.CreateCharge(context.Background(), chargeParamsAuto())
+	result, err := handleTypedRefund(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentRefundConfig, *paymentsv1.PaymentRefundInput]{
+		Config: &paymentsv1.PaymentRefundConfig{
+			Module:   "typed-refund-cfg",
+			ChargeId: charge.ID,
+			Amount:   "500", // partial refund via BMW template
+			Reason:   "requested_by_customer",
+		},
+		Input: &paymentsv1.PaymentRefundInput{}, // empty: Config must win
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.RefundId == "" {
+		t.Error("expected refund_id")
+	}
+}
+
+// TestTypedRefund_Handler_ConfigFallsBackToInput verifies that when the
+// Config fields are empty, Input fields drive the refund.
+func TestTypedRefund_Handler_ConfigFallsBackToInput(t *testing.T) {
+	mock := setupMockModule(t, "typed-refund-fallback")
+	charge, _ := mock.CreateCharge(context.Background(), chargeParamsAuto())
+	result, err := handleTypedRefund(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentRefundConfig, *paymentsv1.PaymentRefundInput]{
+		Config: &paymentsv1.PaymentRefundConfig{Module: "typed-refund-fallback"},
+		Input: &paymentsv1.PaymentRefundInput{
+			ChargeId: charge.ID,
+			Amount:   250,
+			Reason:   "duplicate",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.RefundId == "" {
+		t.Error("expected refund_id from Input fallback path")
+	}
+}
+
+// TestTypedSubscriptionCancel_Handler_ConfigFields verifies Config.SubscriptionId
+// and Config.CancelAtPeriodEnd (as string) take precedence over Input.
+func TestTypedSubscriptionCancel_Handler_ConfigFields(t *testing.T) {
+	mock := setupMockModule(t, "typed-subcancel-cfg")
+	sub, _ := mock.CreateSubscription(context.Background(), payments.SubscriptionParams{
+		CustomerID: "cus_test",
+		PriceID:    "price_test",
+	})
+	result, err := handleTypedSubscriptionCancel(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentSubscriptionCancelConfig, *paymentsv1.PaymentSubscriptionCancelInput]{
+		Config: &paymentsv1.PaymentSubscriptionCancelConfig{
+			Module:            "typed-subcancel-cfg",
+			SubscriptionId:    sub.ID,
+			CancelAtPeriodEnd: "true", // BMW renders bool as string
+		},
+		Input: &paymentsv1.PaymentSubscriptionCancelInput{}, // empty: Config must win
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.SubscriptionId == "" {
+		t.Error("expected subscription_id from Config-driven cancel")
+	}
+}
+
+// TestTypedSubscriptionCancel_Handler_ConfigFallsBackToInput verifies that
+// an empty Config.SubscriptionId falls back to Input.SubscriptionId, and
+// CancelAtPeriodEnd respects the Input fallback when Config string is empty.
+func TestTypedSubscriptionCancel_Handler_ConfigFallsBackToInput(t *testing.T) {
+	mock := setupMockModule(t, "typed-subcancel-fallback")
+	sub, _ := mock.CreateSubscription(context.Background(), payments.SubscriptionParams{
+		CustomerID: "cus_test",
+		PriceID:    "price_test",
+	})
+	result, err := handleTypedSubscriptionCancel(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentSubscriptionCancelConfig, *paymentsv1.PaymentSubscriptionCancelInput]{
+		Config: &paymentsv1.PaymentSubscriptionCancelConfig{Module: "typed-subcancel-fallback"},
+		Input: &paymentsv1.PaymentSubscriptionCancelInput{
+			SubscriptionId:    sub.ID,
+			CancelAtPeriodEnd: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.SubscriptionId == "" {
+		t.Error("expected subscription_id from Input fallback path")
 	}
 }

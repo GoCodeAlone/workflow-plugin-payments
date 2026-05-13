@@ -75,6 +75,19 @@ message PaymentCaptureOutput {
 // PaymentRefundConfig configures the step.payment_refund step.
 message PaymentRefundConfig {
   string module = 1;
+  // charge_id is the charge/PaymentIntent ID to refund. When set, takes
+  // precedence over PaymentRefundInput.charge_id (allows templating in YAML).
+  string charge_id = 2;
+  // amount is the partial-refund amount in the smallest currency unit,
+  // expressed as a string so YAML templates (which always render as strings)
+  // can supply it directly. Empty/missing means full-charge refund. When
+  // non-empty, takes precedence over PaymentRefundInput.amount. Handlers
+  // parse via strconv.ParseInt.
+  string amount = 3;
+  // reason is an optional refund reason (e.g. requested_by_customer,
+  // duplicate, fraudulent). When non-empty, takes precedence over
+  // PaymentRefundInput.reason.
+  string reason = 4;
 }
 
 // PaymentRefundInput is the input for step.payment_refund.
@@ -94,9 +107,11 @@ message PaymentRefundOutput {
 // PaymentFeeCalculateConfig configures the step.payment_fee_calculate step.
 message PaymentFeeCalculateConfig {
   string module = 1;
-  // amount is the gross amount in the smallest currency unit. When non-zero,
-  // takes precedence over PaymentFeeCalculateInput.amount.
-  int64 amount = 2;
+  // amount is the gross amount in the smallest currency unit, expressed as a
+  // string so YAML templates (which always render as strings) can supply it
+  // directly under STRICT_PROTO dispatch. When non-empty, takes precedence
+  // over PaymentFeeCalculateInput.amount. Handlers parse via strconv.ParseInt.
+  string amount = 2;
   // currency is the ISO 4217 currency code. When non-empty, takes precedence
   // over PaymentFeeCalculateInput.currency.
   string currency = 3;
@@ -179,6 +194,17 @@ message PaymentSubscriptionUpdateOutput {
 // PaymentSubscriptionCancelConfig configures the step.payment_subscription_cancel step.
 message PaymentSubscriptionCancelConfig {
   string module = 1;
+  // subscription_id is the provider subscription ID to cancel. When non-empty,
+  // takes precedence over PaymentSubscriptionCancelInput.subscription_id
+  // (allows templating in YAML).
+  string subscription_id = 2;
+  // cancel_at_period_end controls whether the subscription remains active
+  // until the end of the current billing period. Expressed as a string so
+  // YAML templates (e.g. "true") can supply it directly under STRICT_PROTO
+  // dispatch. When non-empty, takes precedence over
+  // PaymentSubscriptionCancelInput.cancel_at_period_end. Handlers parse via
+  // strconv.ParseBool.
+  string cancel_at_period_end = 3;
 }
 
 // PaymentSubscriptionCancelInput is the input for step.payment_subscription_cancel.

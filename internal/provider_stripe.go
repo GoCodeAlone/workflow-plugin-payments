@@ -237,11 +237,29 @@ func (p *stripeProvider) CreateSubscription(_ context.Context, sp payments.Subsc
 		return nil, err
 	}
 	p.setKey()
+	// Two pricing modes:
+	//   - sp.PriceID set: reference an existing provider Price.
+	//   - sp.PriceID empty: create an inline price_data from Amount + Currency + Interval.
+	var item *stripe.SubscriptionItemsParams
+	switch {
+	case sp.PriceID != "":
+		item = &stripe.SubscriptionItemsParams{Price: stripe.String(sp.PriceID)}
+	case sp.Amount > 0 && sp.Currency != "" && sp.Interval != "":
+		item = &stripe.SubscriptionItemsParams{
+			PriceData: &stripe.SubscriptionItemPriceDataParams{
+				Currency:   stripe.String(sp.Currency),
+				UnitAmount: stripe.Int64(sp.Amount),
+				Recurring: &stripe.SubscriptionItemPriceDataRecurringParams{
+					Interval: stripe.String(sp.Interval),
+				},
+			},
+		}
+	default:
+		return nil, fmt.Errorf("stripe CreateSubscription: requires price_id or (amount + currency + interval)")
+	}
 	params := &stripe.SubscriptionParams{
 		Customer: stripe.String(sp.CustomerID),
-		Items: []*stripe.SubscriptionItemsParams{
-			{Price: stripe.String(sp.PriceID)},
-		},
+		Items:    []*stripe.SubscriptionItemsParams{item},
 	}
 	for k, v := range sp.Metadata {
 		params.AddMetadata(k, v)

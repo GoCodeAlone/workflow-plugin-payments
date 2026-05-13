@@ -27,6 +27,23 @@ message ProviderConfig {
 // PaymentChargeConfig configures the step.payment_charge step.
 message PaymentChargeConfig {
   string module = 1;
+  // amount is the charge amount in the smallest currency unit, expressed as a
+  // string so YAML templates (which always render as strings) can supply it
+  // directly under STRICT_PROTO dispatch. When non-empty, takes precedence
+  // over PaymentChargeInput.amount. Handlers parse via strconv.ParseInt.
+  string amount = 2;
+  // currency is the ISO 4217 currency code. When non-empty, takes precedence
+  // over PaymentChargeInput.currency.
+  string currency = 3;
+  // capture_method is "automatic" or "manual". When non-empty, takes
+  // precedence over PaymentChargeInput.capture_method.
+  string capture_method = 4;
+  // description is an optional description attached to the charge. When
+  // non-empty, takes precedence over PaymentChargeInput.description.
+  string description = 5;
+  // customer_id is the provider customer ID to attach the charge to. When
+  // non-empty, takes precedence over PaymentChargeInput.customer_id.
+  string customer_id = 6;
 }
 
 // PaymentChargeInput is the input for step.payment_charge.
@@ -115,9 +132,13 @@ message PaymentFeeCalculateConfig {
   // currency is the ISO 4217 currency code. When non-empty, takes precedence
   // over PaymentFeeCalculateInput.currency.
   string currency = 3;
-  // platform_fee_percent is the platform fee percentage (0-100). When
-  // non-zero, takes precedence over PaymentFeeCalculateInput.platform_fee_percent.
-  double platform_fee_percent = 4;
+  // platform_fee_percent is the platform fee percentage (0-100), expressed
+  // as a string so YAML templates (which always render as strings) can supply
+  // it directly under STRICT_PROTO dispatch. When non-empty, takes precedence
+  // over PaymentFeeCalculateInput.platform_fee_percent. Handlers parse via
+  // strconv.ParseFloat. v0.4.5: type changed from double → string to fix BMW
+  // template-decoded literal rejection.
+  string platform_fee_percent = 4;
 }
 
 // PaymentFeeCalculateInput is the input for step.payment_fee_calculate.
@@ -139,6 +160,12 @@ message PaymentFeeCalculateOutput {
 // PaymentCustomerEnsureConfig configures the step.payment_customer_ensure step.
 message PaymentCustomerEnsureConfig {
   string module = 1;
+  // email is the customer email. When non-empty, takes precedence over
+  // PaymentCustomerEnsureInput.email (allows templating in YAML).
+  string email = 2;
+  // name is the customer display name. When non-empty, takes precedence over
+  // PaymentCustomerEnsureInput.name (allows templating in YAML).
+  string name = 3;
 }
 
 // PaymentCustomerEnsureInput is the input for step.payment_customer_ensure.
@@ -158,6 +185,25 @@ message PaymentCustomerEnsureOutput {
 // PaymentSubscriptionCreateConfig configures the step.payment_subscription_create step.
 message PaymentSubscriptionCreateConfig {
   string module = 1;
+  // customer_id is the provider customer ID to subscribe. When non-empty,
+  // takes precedence over PaymentSubscriptionCreateInput.customer_id (allows
+  // templating in YAML).
+  string customer_id = 2;
+  // price_id is the provider price ID. When non-empty, takes precedence over
+  // PaymentSubscriptionCreateInput.price_id. Inline-pricing callers leave
+  // empty and supply amount + currency + interval instead.
+  string price_id = 3;
+  // amount is the per-interval amount in the smallest currency unit,
+  // expressed as a string so YAML templates can supply it directly under
+  // STRICT_PROTO dispatch. Used for inline price_data when price_id is empty.
+  // Handlers parse via strconv.ParseInt.
+  string amount = 4;
+  // currency is the ISO 4217 currency code. Used for inline price_data when
+  // price_id is empty.
+  string currency = 5;
+  // interval is the billing frequency: day|week|month|year. Used for inline
+  // price_data when price_id is empty.
+  string interval = 6;
 }
 
 // PaymentSubscriptionCreateInput is the input for step.payment_subscription_create.
@@ -289,6 +335,17 @@ message PaymentWebhookEndpointEnsureConfig {
   // endpoint. When non-empty, takes precedence over
   // PaymentWebhookEndpointEnsureInput.description.
   string description = 2;
+  // url is the https URL the provider POSTs events to. When non-empty,
+  // takes precedence over PaymentWebhookEndpointEnsureInput.url (allows
+  // operator pipelines to supply it inline under STRICT_PROTO dispatch).
+  string url = 3;
+  // events is the list of provider event names the endpoint subscribes to.
+  // When non-empty, takes precedence over PaymentWebhookEndpointEnsureInput.events.
+  // Repeated to match BMW's YAML-list shape (events: [a, b]).
+  repeated string events = 4;
+  // mode is "ensure" (default) or "replace". When non-empty, takes precedence
+  // over PaymentWebhookEndpointEnsureInput.mode.
+  string mode = 5;
 }
 
 // PaymentWebhookEndpointEnsureInput is the input for step.payment_webhook_endpoint_ensure.

@@ -308,7 +308,7 @@ func TestTypedFeeCalculate_Handler_ConfigFields(t *testing.T) {
 			Module:             "typed-fee-cfg",
 			Amount:             "1000",
 			Currency:           "usd",
-			PlatformFeePercent: 5.0,
+			PlatformFeePercent: "5.0",
 		},
 		Input: &paymentsv1.PaymentFeeCalculateInput{}, // empty: Config must win
 	})
@@ -432,7 +432,7 @@ func TestTypedFeeCalculate_Handler_ConfigStringAmount(t *testing.T) {
 			Module:             "typed-fee-strcfg",
 			Amount:             "1000", // BMW renders "{{ .body.amount }}" as a string
 			Currency:           "usd",
-			PlatformFeePercent: 5.0,
+			PlatformFeePercent: "5.0", // v0.4.5: also string
 		},
 		Input: &paymentsv1.PaymentFeeCalculateInput{},
 	})
@@ -569,5 +569,289 @@ func TestTypedSubscriptionCancel_Handler_ConfigFallsBackToInput(t *testing.T) {
 	}
 	if result.Output.SubscriptionId == "" {
 		t.Error("expected subscription_id from Input fallback path")
+	}
+}
+
+// --- v0.4.5: Round-3 Config field coverage (BMW comprehensive sweep) ---
+
+// TestParseConfigFloat64 covers the helper's contract: empty/garbage→0,
+// well-formed numeric string→float64.
+func TestParseConfigFloat64(t *testing.T) {
+	cases := map[string]float64{
+		"":     0,
+		"0":    0,
+		"5":    5,
+		"5.0":  5.0,
+		"2.5":  2.5,
+		"-1.5": -1.5,
+		"abc":  0,
+	}
+	for in, want := range cases {
+		if got := parseConfigFloat64(in); got != want {
+			t.Errorf("parseConfigFloat64(%q) = %f, want %f", in, got, want)
+		}
+	}
+}
+
+// TestTypedFeeCalculate_Handler_ConfigStringPlatformFeePercent verifies that
+// a string platform_fee_percent ("5.0", BMW template output) decodes correctly
+// and yields a non-zero platform_fee in the result.
+func TestTypedFeeCalculate_Handler_ConfigStringPlatformFeePercent(t *testing.T) {
+	setupMockModule(t, "typed-fee-pct")
+	result, err := handleTypedFeeCalculate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentFeeCalculateConfig, *paymentsv1.PaymentFeeCalculateInput]{
+		Config: &paymentsv1.PaymentFeeCalculateConfig{
+			Module:             "typed-fee-pct",
+			Amount:             "1000",
+			Currency:           "usd",
+			PlatformFeePercent: "5.0",
+		},
+		Input: &paymentsv1.PaymentFeeCalculateInput{},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected output error: %s", result.Output.Error)
+	}
+	if result.Output.PlatformFee == 0 {
+		t.Error("expected non-zero platform_fee from parsed string platform_fee_percent")
+	}
+}
+
+// TestTypedFeeCalculate_Handler_ConfigPlatformFeePercentInvalidFallback verifies
+// that an unparseable Config.PlatformFeePercent falls back to Input.PlatformFeePercent.
+func TestTypedFeeCalculate_Handler_ConfigPlatformFeePercentInvalidFallback(t *testing.T) {
+	setupMockModule(t, "typed-fee-pct-bad")
+	result, err := handleTypedFeeCalculate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentFeeCalculateConfig, *paymentsv1.PaymentFeeCalculateInput]{
+		Config: &paymentsv1.PaymentFeeCalculateConfig{
+			Module:             "typed-fee-pct-bad",
+			Amount:             "1000",
+			PlatformFeePercent: "not-a-number",
+		},
+		Input: &paymentsv1.PaymentFeeCalculateInput{PlatformFeePercent: 3.0, Currency: "usd"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected output error: %s", result.Output.Error)
+	}
+	if result.Output.PlatformFee == 0 {
+		t.Error("expected non-zero platform_fee from Input fallback")
+	}
+}
+
+// TestTypedCharge_Handler_ConfigFields verifies all v0.4.5 new Config fields
+// (amount, currency, capture_method, description, customer_id) take precedence
+// over Input for templated YAML configs.
+func TestTypedCharge_Handler_ConfigFields(t *testing.T) {
+	setupMockModule(t, "typed-charge-cfg")
+	result, err := handleTypedCharge(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentChargeConfig, *paymentsv1.PaymentChargeInput]{
+		Config: &paymentsv1.PaymentChargeConfig{
+			Module:        "typed-charge-cfg",
+			Amount:        "1500", // BMW template "{{ .total_charge }}"
+			Currency:      "usd",
+			CaptureMethod: "manual",
+			Description:   "BuyMyWishlist contribution",
+			CustomerId:    "cus_cfg",
+		},
+		Input: &paymentsv1.PaymentChargeInput{}, // empty: Config must win
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.ChargeId == "" {
+		t.Error("expected charge_id from Config-driven charge")
+	}
+	if result.Output.Status != "requires_capture" {
+		t.Errorf("expected status=requires_capture (manual capture), got %s", result.Output.Status)
+	}
+	if result.Output.Amount != 1500 {
+		t.Errorf("expected amount=1500 (from Config), got %d", result.Output.Amount)
+	}
+}
+
+// TestTypedCharge_Handler_ConfigFallsBackToInput verifies Input-side fields
+// drive when Config is empty.
+func TestTypedCharge_Handler_ConfigFallsBackToInput(t *testing.T) {
+	setupMockModule(t, "typed-charge-fallback")
+	result, err := handleTypedCharge(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentChargeConfig, *paymentsv1.PaymentChargeInput]{
+		Config: &paymentsv1.PaymentChargeConfig{Module: "typed-charge-fallback"},
+		Input: &paymentsv1.PaymentChargeInput{
+			Amount:        2000,
+			Currency:      "eur",
+			CaptureMethod: "automatic",
+			Description:   "fallback charge",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.Amount != 2000 {
+		t.Errorf("expected amount=2000 from Input, got %d", result.Output.Amount)
+	}
+}
+
+// TestTypedCustomerEnsure_Handler_ConfigEmail verifies Config.Email takes
+// precedence over Input.Email (BMW templates email under config:).
+func TestTypedCustomerEnsure_Handler_ConfigEmail(t *testing.T) {
+	setupMockModule(t, "typed-cust-cfgemail")
+	result, err := handleTypedCustomerEnsure(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentCustomerEnsureConfig, *paymentsv1.PaymentCustomerEnsureInput]{
+		Config: &paymentsv1.PaymentCustomerEnsureConfig{
+			Module: "typed-cust-cfgemail",
+			Email:  "config@example.com",
+			Name:   "Config Customer",
+		},
+		Input: &paymentsv1.PaymentCustomerEnsureInput{}, // empty: Config must win
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.CustomerId == "" {
+		t.Error("expected customer_id from Config-driven ensure")
+	}
+	if result.Output.Email != "config@example.com" {
+		t.Errorf("expected email from Config, got %s", result.Output.Email)
+	}
+}
+
+// TestTypedSubscriptionCreate_Handler_ConfigInlinePricing verifies Config
+// inline pricing (amount + currency + interval) drives the subscription when
+// price_id is empty (BMW pattern).
+func TestTypedSubscriptionCreate_Handler_ConfigInlinePricing(t *testing.T) {
+	setupMockModule(t, "typed-subcreate-inline")
+	result, err := handleTypedSubscriptionCreate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentSubscriptionCreateConfig, *paymentsv1.PaymentSubscriptionCreateInput]{
+		Config: &paymentsv1.PaymentSubscriptionCreateConfig{
+			Module:     "typed-subcreate-inline",
+			CustomerId: "cus_inline",
+			Amount:     "1000", // BMW renders "{{ index .steps \"calc_fees\" \"total_charge\" }}"
+			Currency:   "usd",
+			Interval:   "month",
+		},
+		Input: &paymentsv1.PaymentSubscriptionCreateInput{}, // empty: Config drives
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.SubscriptionId == "" {
+		t.Error("expected subscription_id from inline-pricing path")
+	}
+}
+
+// TestTypedSubscriptionCreate_Handler_ConfigPriceID verifies Config.PriceId
+// path: when set, inline-pricing fields are not required.
+func TestTypedSubscriptionCreate_Handler_ConfigPriceID(t *testing.T) {
+	setupMockModule(t, "typed-subcreate-priceid")
+	result, err := handleTypedSubscriptionCreate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentSubscriptionCreateConfig, *paymentsv1.PaymentSubscriptionCreateInput]{
+		Config: &paymentsv1.PaymentSubscriptionCreateConfig{
+			Module:     "typed-subcreate-priceid",
+			CustomerId: "cus_pid",
+			PriceId:    "price_test_123",
+		},
+		Input: &paymentsv1.PaymentSubscriptionCreateInput{},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.SubscriptionId == "" {
+		t.Error("expected subscription_id from PriceId path")
+	}
+}
+
+// TestTypedSubscriptionCreate_Handler_MissingCustomerID verifies clean error
+// when no customer_id is supplied via either Config or Input.
+func TestTypedSubscriptionCreate_Handler_MissingCustomerID(t *testing.T) {
+	setupMockModule(t, "typed-subcreate-nocust")
+	result, err := handleTypedSubscriptionCreate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentSubscriptionCreateConfig, *paymentsv1.PaymentSubscriptionCreateInput]{
+		Config: &paymentsv1.PaymentSubscriptionCreateConfig{Module: "typed-subcreate-nocust"},
+		Input:  &paymentsv1.PaymentSubscriptionCreateInput{},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error == "" {
+		t.Error("expected error for missing customer_id")
+	}
+}
+
+// TestTypedSubscriptionCreate_Handler_MissingPriceAndInline verifies clean
+// error when customer_id is set but neither price_id nor inline-pricing.
+func TestTypedSubscriptionCreate_Handler_MissingPriceAndInline(t *testing.T) {
+	setupMockModule(t, "typed-subcreate-nopath")
+	result, err := handleTypedSubscriptionCreate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentSubscriptionCreateConfig, *paymentsv1.PaymentSubscriptionCreateInput]{
+		Config: &paymentsv1.PaymentSubscriptionCreateConfig{
+			Module:     "typed-subcreate-nopath",
+			CustomerId: "cus_x",
+		},
+		Input: &paymentsv1.PaymentSubscriptionCreateInput{},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error == "" {
+		t.Error("expected error when neither price_id nor inline-pricing supplied")
+	}
+}
+
+// TestTypedWebhookEndpointEnsure_Handler_ConfigURLAndEvents verifies Config
+// url + events + mode take precedence over Input (BMW operator-pipeline pattern
+// where the entire request is supplied via config:).
+func TestTypedWebhookEndpointEnsure_Handler_ConfigURLAndEvents(t *testing.T) {
+	setupMockModule(t, "typed-wh-cfgall")
+	result, err := handleTypedWebhookEndpointEnsure(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentWebhookEndpointEnsureConfig, *paymentsv1.PaymentWebhookEndpointEnsureInput]{
+		Config: &paymentsv1.PaymentWebhookEndpointEnsureConfig{
+			Module:      "typed-wh-cfgall",
+			Url:         "https://example.test/webhook",
+			Events:      []string{"payment_intent.succeeded", "issuing_authorization.request"},
+			Description: "config-driven webhook",
+			Mode:        "ensure",
+		},
+		Input: &paymentsv1.PaymentWebhookEndpointEnsureInput{}, // empty: Config must win
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.EndpointId == "" {
+		t.Error("expected endpoint_id from Config-driven ensure")
+	}
+}
+
+// TestTypedWebhookEndpointEnsure_Handler_MissingURL_ConfigOnly verifies clean
+// error when neither Config.Url nor Input.Url is set.
+func TestTypedWebhookEndpointEnsure_Handler_MissingURL_ConfigOnly(t *testing.T) {
+	setupMockModule(t, "typed-wh-nourl")
+	result, err := handleTypedWebhookEndpointEnsure(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentWebhookEndpointEnsureConfig, *paymentsv1.PaymentWebhookEndpointEnsureInput]{
+		Config: &paymentsv1.PaymentWebhookEndpointEnsureConfig{
+			Module: "typed-wh-nourl",
+			Events: []string{"payment_intent.succeeded"},
+		},
+		Input: &paymentsv1.PaymentWebhookEndpointEnsureInput{},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error == "" {
+		t.Error("expected error for missing url")
+	}
+	if !result.StopPipeline {
+		t.Error("expected StopPipeline=true for missing url")
 	}
 }

@@ -1,6 +1,6 @@
 {
     "name": "workflow-plugin-payments",
-    "version": "0.4.4",
+    "version": "0.4.5",
     "description": "Multi-provider payment processing plugin (Stripe, PayPal)",
     "author": "GoCodeAlone",
     "license": "Apache-2.0",
@@ -48,7 +48,7 @@
             "description": "Creates a payment charge (PaymentIntent) via the configured payment provider. Supports automatic and manual capture.",
             "configFields": [
                 {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
-                {"key": "amount", "label": "Amount (cents)", "type": "number", "required": true, "description": "Charge amount in the smallest currency unit (e.g. cents for USD)"},
+                {"key": "amount", "label": "Amount (cents)", "type": "string", "required": true, "description": "Charge amount in the smallest currency unit (e.g. cents for USD). String so YAML templates render directly."},
                 {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code (e.g. usd). Falls back to provider default."},
                 {"key": "customer_id", "label": "Customer ID", "type": "string", "description": "Provider customer ID to attach the charge to"},
                 {"key": "capture_method", "label": "Capture Method", "type": "select", "options": ["automatic", "manual"], "defaultValue": "automatic", "description": "Whether to capture funds immediately (automatic) or hold for manual capture later"},
@@ -101,7 +101,7 @@
                 {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
                 {"key": "amount", "label": "Amount (cents)", "type": "number", "required": true, "description": "Gross amount in smallest currency unit"},
                 {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code"},
-                {"key": "platform_fee_percent", "label": "Platform Fee (%)", "type": "number", "description": "Platform fee percentage (0-100). Defaults to 0.", "defaultValue": 0}
+                {"key": "platform_fee_percent", "label": "Platform Fee (%)", "type": "string", "description": "Platform fee percentage (0-100). String so YAML templates render directly. Defaults to \"0\".", "defaultValue": "0"}
             ],
             "outputs": [
                 {"key": "contribution_amount", "type": "number", "description": "Net amount after all fees (in cents)"},
@@ -130,11 +130,14 @@
         {
             "type": "step.payment_subscription_create",
             "plugin": "workflow-plugin-payments",
-            "description": "Creates a new recurring subscription for a customer.",
+            "description": "Creates a new recurring subscription for a customer. Two pricing modes: supply price_id for an existing Price, or supply amount + currency + interval for inline pricing.",
             "configFields": [
                 {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
                 {"key": "customer_id", "label": "Customer ID", "type": "string", "required": true, "description": "Provider customer ID"},
-                {"key": "price_id", "label": "Price ID", "type": "string", "required": true, "description": "Provider price/plan ID to subscribe to"}
+                {"key": "price_id", "label": "Price ID", "type": "string", "description": "Provider price/plan ID to subscribe to. When empty, supply amount + currency + interval for inline pricing."},
+                {"key": "amount", "label": "Amount (cents)", "type": "string", "description": "Per-interval amount in smallest currency unit. Used for inline pricing when price_id is empty. String so YAML templates render directly."},
+                {"key": "currency", "label": "Currency", "type": "string", "description": "ISO 4217 currency code. Used for inline pricing when price_id is empty."},
+                {"key": "interval", "label": "Interval", "type": "select", "options": ["day", "week", "month", "year"], "description": "Billing frequency. Used for inline pricing when price_id is empty."}
             ],
             "outputs": [
                 {"key": "subscription_id", "type": "string", "description": "Provider-assigned subscription ID"},
@@ -236,7 +239,7 @@
             "configFields": [
                 {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the payments.provider module instance to use", "defaultValue": "payments"},
                 {"key": "url", "label": "Webhook URL", "type": "string", "required": true, "description": "https URL the provider will POST events to"},
-                {"key": "events", "label": "Events", "type": "string", "required": true, "description": "List of provider event names (sort/dedup is automatic)"},
+                {"key": "events", "label": "Events", "type": "array", "items": {"type": "string"}, "required": true, "description": "List of provider event names (sort/dedup is automatic)"},
                 {"key": "description", "label": "Description", "type": "string", "description": "Optional human-readable description stored on the endpoint"},
                 {"key": "mode", "label": "Mode", "type": "select", "options": ["ensure", "replace"], "defaultValue": "ensure", "description": "ensure (idempotent) or replace (rotates signing secret — destructive)"}
             ],

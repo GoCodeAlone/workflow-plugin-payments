@@ -50,10 +50,23 @@ type Customer struct {
 }
 
 // SubscriptionParams holds parameters for creating a subscription.
+//
+// Two pricing modes are supported:
+//   - Existing-price: set PriceID to a provider Price ID.
+//   - Inline-price: leave PriceID empty and set Amount + Currency + Interval.
+//     Providers create a recurring Price inline for the subscription.
 type SubscriptionParams struct {
 	CustomerID string
 	PriceID    string
-	Metadata   map[string]string
+	// Amount is the per-interval amount in the smallest currency unit. Used
+	// only when PriceID is empty (inline-price mode).
+	Amount int64
+	// Currency is the ISO 4217 currency code. Used only when PriceID is empty.
+	Currency string
+	// Interval is the billing frequency: day|week|month|year. Used only when
+	// PriceID is empty.
+	Interval string
+	Metadata map[string]string
 }
 
 // SubscriptionUpdateParams holds parameters for updating a subscription.

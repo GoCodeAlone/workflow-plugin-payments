@@ -4,6 +4,68 @@ All notable changes to this plugin are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and version numbers
 follow SemVer.
 
+## [0.4.5] - 2026-05-13
+
+### Fixed
+- **Strict-proto Config-field gaps round 3** — comprehensive sweep of every
+  `step.payment_*` callsite in BMW `app.yaml` (post-v0.4.4 smoke). Rounds 1
+  and 2 each missed entire Config messages; this round adds them all and
+  audits the full surface.
+  - `PaymentFeeCalculateConfig.platform_fee_percent` — type change from
+    `double → string` to match BMW template output
+    (`'{{ ...platform_fee_percent | default "5.0" }}'`). Handler parses via
+    `strconv.ParseFloat`, falls back to Input on empty/invalid. **Breaking
+    for any caller that set PlatformFeePercent programmatically as float64
+    — set it as the decimal string equivalent.**
+  - `PaymentChargeConfig` — added `amount` (string), `currency`,
+    `capture_method`, `description`, `customer_id`. BMW supplies all under
+    `config:` (~`app.yaml` L3733-L3739). Handler parses amount via
+    `strconv.ParseInt`. Config-when-set wins over Input.
+  - `PaymentSubscriptionCreateConfig` — added `customer_id`, `price_id`,
+    `amount` (string), `currency`, `interval`. Two pricing modes: existing
+    `price_id`, or inline pricing via `amount + currency + interval`
+    (BMW pattern at `app.yaml` L5847-L5853). Stripe provider extended to
+    create inline `price_data` when `PriceID` is empty.
+  - `PaymentCustomerEnsureConfig` — added `email`, `name`. BMW supplies
+    `email` via Config at `app.yaml` L5842-L5845.
+  - `PaymentWebhookEndpointEnsureConfig` — added `url`, `events` (repeated
+    string), `mode`. The provision-stripe-issuing-webhook operator pipeline
+    in BMW (`app.yaml` L14785-L14802) supplies the entire request via
+    `config:`, so `url`/`events`/`mode` were dropped under STRICT_PROTO
+    dispatch before this fix. Handlers prefer Config when non-empty.
+
+### Added
+- `parseConfigFloat64` helper mirrors the v0.4.4 `parseConfigInt64` /
+  `parseConfigBool` pattern for string→float64 with empty/invalid → 0.
+- Unit tests covering every new Config field across all five messages,
+  Config-takes-precedence and Input-fallback paths, missing-required-field
+  errors, and parse-helper edge cases.
+- `example/compat-check.yaml` extended with a new `compat-customer-and-subscription`
+  pipeline exercising every v0.4.5 Config field for the workflow-compat CI gate.
+
+### BMW coverage table (every `step.payment_*` callsite in `app.yaml`)
+| step type | YAML line | config fields supplied | now covered |
+|---|---|---|---|
+| `step.payment_fee_calculate` | L3299, L3718, L5835 | module, amount, currency, platform_fee_percent | YES |
+| `step.payment_charge` | L3733 | module, amount, currency, capture_method, description | YES |
+| `step.payment_capture` | L3805, L4927 | module, charge_id | YES (v0.4.3) |
+| `step.payment_refund` | L5164, L8463 | module, charge_id, amount, reason | YES (v0.4.4) |
+| `step.payment_customer_ensure` | L5842 | module, email | YES |
+| `step.payment_subscription_create` | L5847 | module, customer_id, amount, currency, interval | YES |
+| `step.payment_subscription_cancel` | L5908, L8522, L9508 | module, subscription_id, (camelCase cancelAtPeriodEnd at L5912 — BMW-side fix) | YES (v0.4.4) |
+| `step.payment_portal_create` | L8571 | module | YES (no Config fields) |
+| `step.payment_webhook_verify` | L7941 | module | YES (no Config fields) |
+| `step.payment_webhook_endpoint_ensure` | L14792 | module, url, events, description | YES |
+
+### Notes
+- BMW line 5912 uses `cancelAtPeriodEnd` (camelCase). protojson maps proto
+  `cancel_at_period_end` to lowerCamelCase `cancelAtPeriodEnd`, so this
+  callsite actually decodes correctly under STRICT_PROTO. The v0.4.4 note
+  to the contrary was incorrect — no BMW fix needed for this one.
+- `step.payment_subscription_create` previously required `price_id`; v0.4.5
+  introduces inline-pricing mode (`amount + currency + interval`) to support
+  BMW's recurring-contribution flow where no provider Price object exists.
+
 ## [0.4.4] - 2026-05-13
 
 ### Fixed

@@ -12,7 +12,7 @@ modules:
         secret_key: sk_test_compat_check_stub
         default_currency: usd
 
-workflows:
+pipelines:
     compat-payments:
         trigger:
             type: http

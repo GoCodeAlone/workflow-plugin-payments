@@ -235,12 +235,21 @@ func handleTypedCapture(ctx context.Context, req sdk.TypedStepRequest[*paymentsv
 			Output: &paymentsv1.PaymentCaptureOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
-	if req.Input.ChargeId == "" {
+	// Config takes precedence over Input for templated YAML configs (BMW pattern).
+	chargeID := req.Config.ChargeId
+	if chargeID == "" {
+		chargeID = req.Input.ChargeId
+	}
+	amount := req.Config.Amount
+	if amount == 0 {
+		amount = req.Input.Amount
+	}
+	if chargeID == "" {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentCaptureOutput]{
 			Output: &paymentsv1.PaymentCaptureOutput{Error: "charge_id is required"},
 		}, nil
 	}
-	charge, err := provider.CaptureCharge(ctx, req.Input.ChargeId, req.Input.Amount)
+	charge, err := provider.CaptureCharge(ctx, chargeID, amount)
 	if err != nil {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentCaptureOutput]{
 			Output: &paymentsv1.PaymentCaptureOutput{Error: err.Error()},
@@ -293,12 +302,25 @@ func handleTypedFeeCalculate(_ context.Context, req sdk.TypedStepRequest[*paymen
 			Output: &paymentsv1.PaymentFeeCalculateOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
-	if req.Input.Amount == 0 {
+	// Config takes precedence over Input for templated YAML configs (BMW pattern).
+	amount := req.Config.Amount
+	if amount == 0 {
+		amount = req.Input.Amount
+	}
+	currency := req.Config.Currency
+	if currency == "" {
+		currency = req.Input.Currency
+	}
+	platformFeePercent := req.Config.PlatformFeePercent
+	if platformFeePercent == 0 {
+		platformFeePercent = req.Input.PlatformFeePercent
+	}
+	if amount == 0 {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentFeeCalculateOutput]{
 			Output: &paymentsv1.PaymentFeeCalculateOutput{Error: "amount is required"},
 		}, nil
 	}
-	fees, err := provider.CalculateFees(req.Input.Amount, req.Input.Currency, req.Input.PlatformFeePercent)
+	fees, err := provider.CalculateFees(amount, currency, platformFeePercent)
 	if err != nil {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentFeeCalculateOutput]{
 			Output: &paymentsv1.PaymentFeeCalculateOutput{Error: err.Error()},
@@ -553,10 +575,15 @@ func handleTypedWebhookEndpointEnsure(ctx context.Context, req sdk.TypedStepRequ
 			StopPipeline: true,
 		}, nil
 	}
+	// Config.Description takes precedence over Input.Description for templated YAML configs (BMW pattern).
+	description := req.Config.Description
+	if description == "" {
+		description = req.Input.Description
+	}
 	out, err := provider.WebhookEndpointEnsure(ctx, payments.WebhookEndpointEnsureParams{
 		URL:         req.Input.Url,
 		Events:      req.Input.Events,
-		Description: req.Input.Description,
+		Description: description,
 		Mode:        req.Input.Mode,
 	})
 	if err != nil {

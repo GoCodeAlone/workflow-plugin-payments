@@ -1,0 +1,70 @@
+# compat-check.yaml — minimal config exercising every step.payment_* config field
+# this plugin advertises. Drives the workflow-compat CI gate that validates
+# the plugin against the latest workflow release with --strict.
+#
+# Validation-only: never deployed. Stripe key is a fake test stub.
+
+modules:
+    - name: stripe
+      type: payments.provider
+      config:
+        provider: stripe
+        secret_key: sk_test_compat_check_stub
+        default_currency: usd
+
+pipelines:
+    compat-payments:
+        trigger:
+            type: http
+            config:
+                path: /compat/payments
+                method: POST
+        steps:
+            # Exercises PaymentFeeCalculateConfig.{amount, currency, platform_fee_percent}.
+            - name: calc_fees
+              type: step.payment_fee_calculate
+              config:
+                module: stripe
+                amount: 1000
+                currency: usd
+                platform_fee_percent: 5.0
+
+            - name: create_charge
+              type: step.payment_charge
+              config:
+                module: stripe
+                amount: 1000
+                currency: usd
+                capture_method: manual
+                description: "compat-check charge"
+
+            # Exercises PaymentCaptureConfig.{charge_id, amount}.
+            - name: capture_payment
+              type: step.payment_capture
+              config:
+                module: stripe
+                charge_id: "ch_test_compat"
+                amount: 1000
+
+            - name: refund_payment
+              type: step.payment_refund
+              config:
+                module: stripe
+                charge_id: "ch_test_compat"
+                reason: requested_by_customer
+
+    compat-webhook-ensure:
+        trigger:
+            type: cli
+            config:
+                command: compat-ensure-webhook
+        steps:
+            # Exercises PaymentWebhookEndpointEnsureConfig.description.
+            - name: ensure_endpoint
+              type: step.payment_webhook_endpoint_ensure
+              config:
+                module: stripe
+                url: "https://example.test/webhook"
+                events:
+                    - payment_intent.succeeded
+                description: "compat-check webhook"

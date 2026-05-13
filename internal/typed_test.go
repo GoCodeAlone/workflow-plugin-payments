@@ -249,3 +249,125 @@ func TestTypedModuleProvider_ImplementsInterface(t *testing.T) {
 func TestTypedStepProvider_ImplementsInterface(t *testing.T) {
 	var _ sdk.TypedStepProvider = (*paymentsPlugin)(nil)
 }
+
+// --- v0.4.3: Config-field precedence over Input (BMW templated-YAML pattern) ---
+
+// TestTypedCapture_Handler_ConfigChargeID verifies Config.ChargeId takes
+// precedence over Input.ChargeId so BMW's `config: { charge_id: "{{ .id }}" }`
+// pattern works under strict-proto dispatch.
+func TestTypedCapture_Handler_ConfigChargeID(t *testing.T) {
+	mock := setupMockModule(t, "typed-capture-cfg")
+	charge, _ := mock.CreateCharge(context.Background(), chargeParamsManual())
+	result, err := handleTypedCapture(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentCaptureConfig, *paymentsv1.PaymentCaptureInput]{
+		Config: &paymentsv1.PaymentCaptureConfig{
+			Module:   "typed-capture-cfg",
+			ChargeId: charge.ID,
+		},
+		Input: &paymentsv1.PaymentCaptureInput{}, // empty: Config must win
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.Status != "succeeded" {
+		t.Errorf("expected succeeded, got %s", result.Output.Status)
+	}
+}
+
+// TestTypedCapture_Handler_ConfigAmount verifies Config.Amount takes
+// precedence over Input.Amount when non-zero.
+func TestTypedCapture_Handler_ConfigAmount(t *testing.T) {
+	mock := setupMockModule(t, "typed-capture-amt")
+	charge, _ := mock.CreateCharge(context.Background(), chargeParamsManual())
+	result, err := handleTypedCapture(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentCaptureConfig, *paymentsv1.PaymentCaptureInput]{
+		Config: &paymentsv1.PaymentCaptureConfig{
+			Module:   "typed-capture-amt",
+			ChargeId: charge.ID,
+			Amount:   500,
+		},
+		Input: &paymentsv1.PaymentCaptureInput{Amount: 999}, // ignored
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+}
+
+// TestTypedFeeCalculate_Handler_ConfigFields verifies amount/currency/
+// platform_fee_percent flow from Config when set, falling back to Input.
+func TestTypedFeeCalculate_Handler_ConfigFields(t *testing.T) {
+	setupMockModule(t, "typed-fee-cfg")
+	result, err := handleTypedFeeCalculate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentFeeCalculateConfig, *paymentsv1.PaymentFeeCalculateInput]{
+		Config: &paymentsv1.PaymentFeeCalculateConfig{
+			Module:             "typed-fee-cfg",
+			Amount:             1000,
+			Currency:           "usd",
+			PlatformFeePercent: 5.0,
+		},
+		Input: &paymentsv1.PaymentFeeCalculateInput{}, // empty: Config must win
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected output error: %s", result.Output.Error)
+	}
+	if result.Output.TotalCharge == 0 {
+		t.Error("expected non-zero total_charge from config-driven calc")
+	}
+	if result.Output.PlatformFee == 0 {
+		t.Error("expected non-zero platform_fee with platform_fee_percent=5.0")
+	}
+}
+
+// TestTypedFeeCalculate_Handler_ConfigFallsBackToInput verifies that when
+// Config.Amount is zero, Input.Amount is used.
+func TestTypedFeeCalculate_Handler_ConfigFallsBackToInput(t *testing.T) {
+	setupMockModule(t, "typed-fee-fallback")
+	result, err := handleTypedFeeCalculate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentFeeCalculateConfig, *paymentsv1.PaymentFeeCalculateInput]{
+		Config: &paymentsv1.PaymentFeeCalculateConfig{Module: "typed-fee-fallback"},
+		Input: &paymentsv1.PaymentFeeCalculateInput{
+			Amount:             2000,
+			Currency:           "usd",
+			PlatformFeePercent: 3.0,
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected output error: %s", result.Output.Error)
+	}
+	if result.Output.TotalCharge == 0 {
+		t.Error("expected non-zero total_charge from input fallback")
+	}
+}
+
+// TestTypedWebhookEndpointEnsure_Handler_ConfigDescription verifies
+// Config.Description takes precedence over Input.Description (BMW pattern).
+func TestTypedWebhookEndpointEnsure_Handler_ConfigDescription(t *testing.T) {
+	setupMockModule(t, "typed-wh-cfg")
+	result, err := handleTypedWebhookEndpointEnsure(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentWebhookEndpointEnsureConfig, *paymentsv1.PaymentWebhookEndpointEnsureInput]{
+		Config: &paymentsv1.PaymentWebhookEndpointEnsureConfig{
+			Module:      "typed-wh-cfg",
+			Description: "BMW Issuing webhook",
+		},
+		Input: &paymentsv1.PaymentWebhookEndpointEnsureInput{
+			Url:    "https://example.com/webhook",
+			Events: []string{"payment_intent.succeeded"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.EndpointId == "" {
+		t.Error("expected endpoint_id")
+	}
+}

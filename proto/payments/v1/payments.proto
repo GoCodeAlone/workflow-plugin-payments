@@ -50,6 +50,13 @@ message PaymentChargeOutput {
 // PaymentCaptureConfig configures the step.payment_capture step.
 message PaymentCaptureConfig {
   string module = 1;
+  // charge_id is the charge/PaymentIntent ID to capture. When set, takes
+  // precedence over PaymentCaptureInput.charge_id (allows templating in YAML).
+  string charge_id = 2;
+  // amount is the partial-capture amount in the smallest currency unit. 0
+  // captures the full authorised amount. When non-zero, takes precedence over
+  // PaymentCaptureInput.amount.
+  int64 amount = 3;
 }
 
 // PaymentCaptureInput is the input for step.payment_capture.
@@ -87,6 +94,15 @@ message PaymentRefundOutput {
 // PaymentFeeCalculateConfig configures the step.payment_fee_calculate step.
 message PaymentFeeCalculateConfig {
   string module = 1;
+  // amount is the gross amount in the smallest currency unit. When non-zero,
+  // takes precedence over PaymentFeeCalculateInput.amount.
+  int64 amount = 2;
+  // currency is the ISO 4217 currency code. When non-empty, takes precedence
+  // over PaymentFeeCalculateInput.currency.
+  string currency = 3;
+  // platform_fee_percent is the platform fee percentage (0-100). When
+  // non-zero, takes precedence over PaymentFeeCalculateInput.platform_fee_percent.
+  double platform_fee_percent = 4;
 }
 
 // PaymentFeeCalculateInput is the input for step.payment_fee_calculate.
@@ -243,6 +259,10 @@ message PaymentWebhookVerifyOutput {
 // PaymentWebhookEndpointEnsureConfig configures the step.payment_webhook_endpoint_ensure step.
 message PaymentWebhookEndpointEnsureConfig {
   string module = 1;
+  // description is the human-readable description stored on the provider
+  // endpoint. When non-empty, takes precedence over
+  // PaymentWebhookEndpointEnsureInput.description.
+  string description = 2;
 }
 
 // PaymentWebhookEndpointEnsureInput is the input for step.payment_webhook_endpoint_ensure.

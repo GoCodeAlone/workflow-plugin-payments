@@ -1,0 +1,77 @@
+name: Workflow Compat
+
+# Validates this plugin against the latest GoCodeAlone/workflow release.
+# Catches strict-proto Config-field gaps before downstream consumers
+# (e.g. BMW app.yaml) trip them in production.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Daily sanity check against upstream workflow releases.
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+
+env:
+  GOPRIVATE: github.com/GoCodeAlone/*
+
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Configure Git for private repos
+        env:
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if [ -n "$RELEASES_TOKEN" ]; then
+            git config --global url."https://x-access-token:${RELEASES_TOKEN}@github.com/".insteadOf "https://github.com/"
+          fi
+
+      - name: Discover latest workflow release
+        id: workflow_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=$(gh api repos/GoCodeAlone/workflow/releases/latest --jq '.tag_name')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Latest workflow release: $tag"
+
+      - name: Install wfctl from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.workflow_release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          gh release download "$TAG" \
+            --repo GoCodeAlone/workflow \
+            --pattern 'wfctl-linux-amd64' \
+            --output "$HOME/.local/bin/wfctl"
+          chmod +x "$HOME/.local/bin/wfctl"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/wfctl" --version || true
+
+      - name: Build plugin binary
+        run: |
+          set -euo pipefail
+          mkdir -p data/plugins/workflow-plugin-payments
+          go build -o data/plugins/workflow-plugin-payments/workflow-plugin-payments \
+            ./cmd/workflow-plugin-payments
+          cp plugin.json data/plugins/workflow-plugin-payments/
+          cp plugin.contracts.json data/plugins/workflow-plugin-payments/ 2>/dev/null || true
+
+      - name: Validate example against installed plugin
+        run: |
+          set -euo pipefail
+          wfctl validate --plugin-dir data/plugins --strict example/compat-check.yaml

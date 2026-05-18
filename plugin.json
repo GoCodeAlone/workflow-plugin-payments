@@ -23,6 +23,7 @@
     "moduleTypes": ["payments.provider"],
     "stepTypes": [
         "step.payment_charge",
+        "step.payment_stablecoin_deposit_intent",
         "step.payment_capture",
         "step.payment_refund",
         "step.payment_fee_calculate",
@@ -59,6 +60,30 @@
                 {"key": "client_secret", "type": "string", "description": "Client secret for client-side confirmation (Stripe only)"},
                 {"key": "status", "type": "string", "description": "Charge status (e.g. requires_payment_method, succeeded)"},
                 {"key": "amount", "type": "number", "description": "Confirmed charge amount in smallest currency unit"},
+                {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
+            ]
+        },
+        {
+            "type": "step.payment_stablecoin_deposit_intent",
+            "plugin": "workflow-plugin-payments",
+            "description": "Creates a Stripe stablecoin deposit-mode PaymentIntent and returns provider deposit addresses. Stripe private preview only.",
+            "configFields": [
+                {"key": "module", "label": "Payment Provider Module", "type": "string", "description": "Name of the Stripe payments.provider module instance to use", "defaultValue": "payments"},
+                {"key": "amount", "label": "Amount", "type": "string", "required": true, "description": "PaymentIntent amount in the smallest currency unit. String so YAML templates render directly."},
+                {"key": "currency", "label": "Currency", "type": "string", "defaultValue": "usd", "description": "Fiat settlement currency for the PaymentIntent"},
+                {"key": "networks", "label": "Networks", "type": "multiselect", "options": ["base", "tempo", "solana"], "description": "Stripe deposit-mode networks to request"},
+                {"key": "stablecoin", "label": "Stablecoin", "type": "select", "options": ["usdc"], "defaultValue": "usdc", "description": "Expected stablecoin token currency"},
+                {"key": "idempotency_key", "label": "Idempotency Key", "type": "string", "description": "Optional Stripe Idempotency-Key header"},
+                {"key": "description", "label": "Description", "type": "string", "description": "Optional description attached to the PaymentIntent"}
+            ],
+            "outputs": [
+                {"key": "payment_intent_id", "type": "string", "description": "Provider-assigned PaymentIntent ID"},
+                {"key": "client_secret", "type": "string", "description": "PaymentIntent client secret"},
+                {"key": "status", "type": "string", "description": "PaymentIntent status"},
+                {"key": "amount", "type": "number", "description": "PaymentIntent amount in smallest currency unit"},
+                {"key": "currency", "type": "string", "description": "PaymentIntent currency"},
+                {"key": "stablecoin", "type": "string", "description": "Stablecoin token currency"},
+                {"key": "deposit_addresses", "type": "array", "description": "Deposit address records keyed by provider network"},
                 {"key": "error", "type": "string", "description": "Error message if the step failed; omitted on success"}
             ]
         },

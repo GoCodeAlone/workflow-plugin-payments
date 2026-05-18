@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -30,6 +31,7 @@ import (
 const (
 	webhookEnsureModeEnsure  = "ensure"
 	webhookEnsureModeReplace = "replace"
+	stripeStablecoinPreview  = "2026-03-04.preview"
 )
 
 // errStripeKeyMissing aliases the exported payments.ErrStripeKeyMissing for
@@ -144,6 +146,140 @@ func (p *stripeProvider) CreateCharge(ctx context.Context, cp payments.ChargePar
 		Amount:       pi.Amount,
 		Currency:     string(pi.Currency),
 	}, nil
+}
+
+func (p *stripeProvider) CreateStablecoinDepositIntent(ctx context.Context, sp payments.StablecoinDepositIntentParams) (*payments.StablecoinDepositIntent, error) {
+	if err := p.checkKey(); err != nil {
+		return nil, err
+	}
+	p.setKey()
+	if sp.Amount <= 0 {
+		return nil, fmt.Errorf("stripe CreateStablecoinDepositIntent: amount is required")
+	}
+	currency := strings.ToLower(strings.TrimSpace(sp.Currency))
+	if currency == "" {
+		currency = p.defaultCurrency
+	}
+	stablecoin := strings.ToLower(strings.TrimSpace(sp.Stablecoin))
+	if stablecoin == "" {
+		stablecoin = "usdc"
+	}
+	if stablecoin != "usdc" {
+		return nil, fmt.Errorf("stripe CreateStablecoinDepositIntent: unsupported stablecoin %q", sp.Stablecoin)
+	}
+	networks, err := normalizeStablecoinDepositNetworks(sp.Networks)
+	if err != nil {
+		return nil, err
+	}
+
+	params := &stripe.PaymentIntentParams{
+		Params: stripe.Params{
+			Context: ctx,
+			Headers: http.Header{
+				"Stripe-Version": []string{stripeStablecoinPreview},
+			},
+		},
+		Amount:             stripe.Int64(sp.Amount),
+		Currency:           stripe.String(currency),
+		Confirm:            stripe.Bool(true),
+		Description:        stripe.String(sp.Description),
+		PaymentMethodTypes: []*string{stripe.String("crypto")},
+		PaymentMethodData: &stripe.PaymentIntentPaymentMethodDataParams{
+			Type: stripe.String("crypto"),
+		},
+	}
+	if sp.IdempotencyKey != "" {
+		params.SetIdempotencyKey(sp.IdempotencyKey)
+	}
+	params.AddExtra("payment_method_options[crypto][mode]", "deposit")
+	for _, network := range networks {
+		params.AddExtra("payment_method_options[crypto][deposit_options][networks][]", network)
+	}
+	for k, v := range sp.Metadata {
+		params.AddMetadata(k, v)
+	}
+
+	pi, err := paymentintent.New(params)
+	if err != nil {
+		return nil, fmt.Errorf("stripe CreateStablecoinDepositIntent: %w", err)
+	}
+	addresses := stripeStablecoinDepositAddresses(pi, stablecoin)
+	return &payments.StablecoinDepositIntent{
+		ID:               pi.ID,
+		ClientSecret:     pi.ClientSecret,
+		Status:           string(pi.Status),
+		Amount:           pi.Amount,
+		Currency:         string(pi.Currency),
+		Stablecoin:       stablecoin,
+		DepositAddresses: addresses,
+	}, nil
+}
+
+func normalizeStablecoinDepositNetworks(networks []string) ([]string, error) {
+	if len(networks) == 0 {
+		networks = []string{"base", "tempo", "solana"}
+	}
+	allowed := map[string]struct{}{"base": {}, "tempo": {}, "solana": {}}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(networks))
+	for _, network := range networks {
+		normalized := strings.ToLower(strings.TrimSpace(network))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := allowed[normalized]; !ok {
+			return nil, fmt.Errorf("stripe CreateStablecoinDepositIntent: unsupported network %q", network)
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("stripe CreateStablecoinDepositIntent: at least one network is required")
+	}
+	return out, nil
+}
+
+func stripeStablecoinDepositAddresses(pi *stripe.PaymentIntent, stablecoin string) []payments.StablecoinDepositAddress {
+	if pi == nil || pi.LastResponse == nil || len(pi.LastResponse.RawJSON) == 0 {
+		return nil
+	}
+	var raw struct {
+		NextAction struct {
+			CryptoDisplayDetails struct {
+				DepositAddresses map[string]struct {
+					Address         string `json:"address"`
+					SupportedTokens []struct {
+						TokenCurrency        string `json:"token_currency"`
+						TokenContractAddress string `json:"token_contract_address"`
+					} `json:"supported_tokens"`
+				} `json:"deposit_addresses"`
+			} `json:"crypto_display_details"`
+		} `json:"next_action"`
+	}
+	if err := json.Unmarshal(pi.LastResponse.RawJSON, &raw); err != nil {
+		return nil
+	}
+	addresses := make([]payments.StablecoinDepositAddress, 0, len(raw.NextAction.CryptoDisplayDetails.DepositAddresses))
+	for network, address := range raw.NextAction.CryptoDisplayDetails.DepositAddresses {
+		for _, token := range address.SupportedTokens {
+			if strings.EqualFold(token.TokenCurrency, stablecoin) {
+				addresses = append(addresses, payments.StablecoinDepositAddress{
+					Network:              network,
+					Address:              address.Address,
+					Stablecoin:           strings.ToLower(token.TokenCurrency),
+					TokenContractAddress: token.TokenContractAddress,
+				})
+				break
+			}
+		}
+	}
+	sort.Slice(addresses, func(i, j int) bool {
+		return addresses[i].Network < addresses[j].Network
+	})
+	return addresses
 }
 
 func (p *stripeProvider) CaptureCharge(_ context.Context, chargeID string, amount int64) (*payments.Charge, error) {

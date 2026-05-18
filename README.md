@@ -7,7 +7,7 @@ Multi-provider payment processing for the [GoCodeAlone/workflow](https://github.
 | Surface | Purpose |
 |---|---|
 | `payments.provider` module | Provider-backed runtime (Stripe, PayPal). Configures secret keys + defaults. |
-| 17 `step.payment_*` step types | Charge / capture / refund / fee-calculate / customer / subscription / checkout / portal / webhook verify + ensure / transfer / payout / invoice / payment-method ops. |
+| 18 `step.payment_*` step types | Charge / stablecoin deposit intent / capture / refund / fee-calculate / customer / subscription / checkout / portal / webhook verify + ensure / transfer / payout / invoice / payment-method ops. |
 | `wfctl payments` CLI | Plugin-CLI commands operators run without standing the engine up — e.g. one-shot webhook endpoint provisioning. |
 
 ## Install
@@ -55,17 +55,19 @@ See [`docs/SETUP.md`](docs/SETUP.md) for the full module schema, multi-tenant co
 
 ```
 step.payment_charge                    step.payment_subscription_create
-step.payment_capture                   step.payment_subscription_update
-step.payment_refund                    step.payment_subscription_cancel
-step.payment_customer_ensure           step.payment_checkout_create
-step.payment_fee_calculate             step.payment_portal_create
-step.payment_webhook_verify            step.payment_webhook_endpoint_ensure
-step.payment_transfer                  step.payment_method_attach
-step.payment_payout                    step.payment_method_list
-step.payment_invoice_list
+step.payment_stablecoin_deposit_intent step.payment_subscription_update
+step.payment_capture                   step.payment_subscription_cancel
+step.payment_refund                    step.payment_checkout_create
+step.payment_customer_ensure           step.payment_portal_create
+step.payment_fee_calculate             step.payment_webhook_endpoint_ensure
+step.payment_webhook_verify            step.payment_method_attach
+step.payment_transfer                  step.payment_method_list
+step.payment_payout                    step.payment_invoice_list
 ```
 
 Every step takes a `module` config field selecting the `payments.provider` module instance to dispatch to (defaults to `payments`). Outputs are scalar string/bool/number across the gRPC structpb boundary so they round-trip cleanly through pipeline state.
+
+`step.payment_stablecoin_deposit_intent` is Stripe-only private-preview support for [Stripe deposit-mode stablecoin payments](https://docs.stripe.com/payments/deposit-mode-stablecoin-payments). It creates a confirmed `crypto` PaymentIntent with `mode=deposit`, requests deposit addresses for `base`, `tempo`, and/or `solana`, and returns address/token details for downstream settlement evidence. The step intentionally fails closed outside the documented USDC networks.
 
 ## CLI commands
 

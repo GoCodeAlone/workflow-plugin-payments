@@ -1,6 +1,9 @@
 package internal
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // getModuleName returns the "module" key from a step config map, defaulting to "payments".
 func getModuleName(config map[string]any) string {
@@ -30,6 +33,13 @@ func resolveInt64(key string, current, config map[string]any) int64 {
 	return toInt64(config[key])
 }
 
+func resolveStringSlice(key string, current, config map[string]any) []string {
+	if values := toStringSlice(current[key]); len(values) > 0 {
+		return values
+	}
+	return toStringSlice(config[key])
+}
+
 // resolveFloat64 looks up key in current first, then config as float64.
 func resolveFloat64(key string, current, config map[string]any) float64 {
 	if v := toFloat64(current[key]); v != 0 {
@@ -56,6 +66,31 @@ func toInt64(v any) int64 {
 		return n
 	}
 	return 0
+}
+
+func toStringSlice(v any) []string {
+	switch t := v.(type) {
+	case []string:
+		return t
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, item := range t {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case string:
+		parts := strings.Split(t, ",")
+		out := make([]string, 0, len(parts))
+		for _, part := range parts {
+			if s := strings.TrimSpace(part); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return nil
 }
 
 func toFloat64(v any) float64 {

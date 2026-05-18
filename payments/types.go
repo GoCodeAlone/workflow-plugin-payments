@@ -21,6 +21,37 @@ type Charge struct {
 	Currency     string
 }
 
+// StablecoinDepositIntentParams holds parameters for a provider-created
+// stablecoin deposit-mode PaymentIntent.
+type StablecoinDepositIntentParams struct {
+	Amount         int64
+	Currency       string
+	Networks       []string
+	Stablecoin     string
+	IdempotencyKey string
+	Description    string
+	Metadata       map[string]string
+}
+
+// StablecoinDepositAddress is a provider deposit address for one network.
+type StablecoinDepositAddress struct {
+	Network              string
+	Address              string
+	Stablecoin           string
+	TokenContractAddress string
+}
+
+// StablecoinDepositIntent represents a stablecoin deposit-mode PaymentIntent.
+type StablecoinDepositIntent struct {
+	ID               string
+	ClientSecret     string
+	Status           string
+	Amount           int64
+	Currency         string
+	Stablecoin       string
+	DepositAddresses []StablecoinDepositAddress
+}
+
 // RefundParams holds parameters for refunding a charge.
 type RefundParams struct {
 	ChargeID string

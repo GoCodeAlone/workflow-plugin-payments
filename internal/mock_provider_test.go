@@ -13,6 +13,7 @@ import (
 type mockProvider struct {
 	mu         sync.Mutex
 	charges    map[string]*payments.Charge
+	deposits   map[string]*payments.StablecoinDepositIntent
 	refunds    map[string]*payments.Refund
 	customers  map[string]*payments.Customer
 	subs       map[string]*payments.Subscription
@@ -29,6 +30,7 @@ type mockProvider struct {
 func newMockProvider() *mockProvider {
 	return &mockProvider{
 		charges:   make(map[string]*payments.Charge),
+		deposits:  make(map[string]*payments.StablecoinDepositIntent),
 		refunds:   make(map[string]*payments.Refund),
 		customers: make(map[string]*payments.Customer),
 		subs:      make(map[string]*payments.Subscription),
@@ -62,6 +64,36 @@ func (m *mockProvider) CreateCharge(_ context.Context, p payments.ChargeParams) 
 	}
 	m.charges[c.ID] = c
 	return c, nil
+}
+
+func (m *mockProvider) CreateStablecoinDepositIntent(_ context.Context, p payments.StablecoinDepositIntentParams) (*payments.StablecoinDepositIntent, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	id := m.nextID("pi")
+	stablecoin := p.Stablecoin
+	if stablecoin == "" {
+		stablecoin = "usdc"
+	}
+	addresses := make([]payments.StablecoinDepositAddress, 0, len(p.Networks))
+	for _, network := range p.Networks {
+		addresses = append(addresses, payments.StablecoinDepositAddress{
+			Network:              network,
+			Address:              network + "_deposit_address",
+			Stablecoin:           stablecoin,
+			TokenContractAddress: network + "_token_contract",
+		})
+	}
+	intent := &payments.StablecoinDepositIntent{
+		ID:               id,
+		ClientSecret:     id + "_secret",
+		Status:           "requires_action",
+		Amount:           p.Amount,
+		Currency:         p.Currency,
+		Stablecoin:       stablecoin,
+		DepositAddresses: addresses,
+	}
+	m.deposits[id] = intent
+	return intent, nil
 }
 
 func (m *mockProvider) CaptureCharge(_ context.Context, chargeID string, amount int64) (*payments.Charge, error) {

@@ -64,6 +64,56 @@ message PaymentChargeOutput {
   string error = 5;
 }
 
+
+// PaymentStablecoinDepositIntentConfig configures the step.payment_stablecoin_deposit_intent step.
+message PaymentStablecoinDepositIntentConfig {
+  string module = 1;
+  // amount is the PaymentIntent amount in the smallest currency unit,
+  // expressed as a string so YAML templates can supply it directly.
+  string amount = 2;
+  // currency is the fiat settlement currency for the PaymentIntent. Defaults to usd.
+  string currency = 3;
+  // networks is the allow-list of Stripe deposit-mode networks to request.
+  // Currently supported values are base, tempo, and solana.
+  repeated string networks = 4;
+  // stablecoin is the expected token currency. Currently only usdc is accepted.
+  string stablecoin = 5;
+  // idempotency_key is passed as Stripe's Idempotency-Key header when set.
+  string idempotency_key = 6;
+  // description is attached to the provider PaymentIntent.
+  string description = 7;
+}
+
+// PaymentStablecoinDepositIntentInput is the input for step.payment_stablecoin_deposit_intent.
+message PaymentStablecoinDepositIntentInput {
+  int64 amount = 1;
+  string currency = 2;
+  repeated string networks = 3;
+  string stablecoin = 4;
+  string idempotency_key = 5;
+  string description = 6;
+}
+
+// StablecoinDepositAddress describes a provider deposit address for one network.
+message StablecoinDepositAddress {
+  string network = 1;
+  string address = 2;
+  string stablecoin = 3;
+  string token_contract_address = 4;
+}
+
+// PaymentStablecoinDepositIntentOutput is the output from step.payment_stablecoin_deposit_intent.
+message PaymentStablecoinDepositIntentOutput {
+  string payment_intent_id = 1;
+  string client_secret = 2;
+  string status = 3;
+  int64 amount = 4;
+  string currency = 5;
+  string stablecoin = 6;
+  repeated StablecoinDepositAddress deposit_addresses = 7;
+  string error = 8;
+}
+
 // PaymentCaptureConfig configures the step.payment_capture step.
 message PaymentCaptureConfig {
   string module = 1;

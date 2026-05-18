@@ -187,6 +187,10 @@ func (p *paypalProvider) CreateCharge(ctx context.Context, cp payments.ChargePar
 	}, nil
 }
 
+func (p *paypalProvider) CreateStablecoinDepositIntent(_ context.Context, _ payments.StablecoinDepositIntentParams) (*payments.StablecoinDepositIntent, error) {
+	return nil, fmt.Errorf("paypal CreateStablecoinDepositIntent: stablecoin deposit mode is not supported")
+}
+
 func (p *paypalProvider) CaptureCharge(ctx context.Context, chargeID string, _ int64) (*payments.Charge, error) {
 	respBody, statusCode, err := p.doJSON(ctx, "POST", "/v2/checkout/orders/"+chargeID+"/capture", map[string]any{})
 	if err != nil {

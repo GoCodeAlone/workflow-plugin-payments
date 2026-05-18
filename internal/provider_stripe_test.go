@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -124,6 +125,96 @@ func TestStripeCreateCharge_Manual(t *testing.T) {
 	}
 	if charge.Status != "requires_capture" {
 		t.Errorf("expected requires_capture, got %s", charge.Status)
+	}
+}
+
+func TestStripeCreateStablecoinDepositIntent(t *testing.T) {
+	p, _ := newTestStripeProvider(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/payment_intents" || r.Method != "POST" {
+			http.NotFound(w, r)
+			return
+		}
+		if got := r.Header.Get("Stripe-Version"); got != stripeStablecoinPreview {
+			t.Fatalf("Stripe-Version = %q, want %q", got, stripeStablecoinPreview)
+		}
+		if got := r.Header.Get("Idempotency-Key"); got != "intent-key-1" {
+			t.Fatalf("Idempotency-Key = %q, want intent-key-1", got)
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Fatal(err)
+		}
+		assertForm := func(key, want string) {
+			t.Helper()
+			if got := r.Form.Get(key); got != want {
+				t.Fatalf("form %s = %q, want %q; full form %#v", key, got, want, r.Form)
+			}
+		}
+		assertForm("amount", "5000")
+		assertForm("currency", "usd")
+		assertForm("confirm", "true")
+		assertForm("payment_method_types[0]", "crypto")
+		assertForm("payment_method_data[type]", "crypto")
+		assertForm("payment_method_options[crypto][mode]", "deposit")
+		if got := r.Form["payment_method_options[crypto][deposit_options][networks][]"]; len(got) != 2 || got[0] != "base" || got[1] != "solana" {
+			t.Fatalf("deposit networks = %#v, want [base solana]", got)
+		}
+		writeJSON(w, map[string]any{
+			"id":            "pi_stablecoin",
+			"object":        "payment_intent",
+			"amount":        5000,
+			"currency":      "usd",
+			"status":        "requires_action",
+			"client_secret": "pi_stablecoin_secret",
+			"next_action": map[string]any{
+				"type": "crypto_display_details",
+				"crypto_display_details": map[string]any{
+					"deposit_addresses": map[string]any{
+						"base": map[string]any{
+							"address": "0xbase_address",
+							"supported_tokens": []map[string]any{{
+								"token_currency":         "usdc",
+								"token_contract_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+							}},
+						},
+					},
+				},
+			},
+		})
+	})
+
+	intent, err := p.CreateStablecoinDepositIntent(context.Background(), payments.StablecoinDepositIntentParams{
+		Amount:         5000,
+		Currency:       "usd",
+		Networks:       []string{"base", "solana"},
+		Stablecoin:     "usdc",
+		IdempotencyKey: "intent-key-1",
+		Description:    "BMW settlement",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if intent.ID != "pi_stablecoin" || intent.Status != "requires_action" {
+		t.Fatalf("unexpected intent: %#v", intent)
+	}
+	if len(intent.DepositAddresses) != 1 {
+		t.Fatalf("deposit addresses = %#v, want one", intent.DepositAddresses)
+	}
+	if got := intent.DepositAddresses[0].Address; got != "0xbase_address" {
+		t.Fatalf("deposit address = %q", got)
+	}
+}
+
+func TestStripeCreateStablecoinDepositIntentRejectsUnsupportedNetwork(t *testing.T) {
+	p := &stripeProvider{secretKey: "sk_test", defaultCurrency: "usd"}
+	_, err := p.CreateStablecoinDepositIntent(context.Background(), payments.StablecoinDepositIntentParams{
+		Amount:   5000,
+		Networks: []string{"ethereum"},
+	})
+	if err == nil {
+		t.Fatal("expected unsupported network error")
+	}
+	if !strings.Contains(err.Error(), "unsupported network") {
+		t.Fatalf("expected unsupported network error, got %v", err)
 	}
 }
 
@@ -300,6 +391,10 @@ func TestStripeAPICallWithEmptySecretKey(t *testing.T) {
 	}{
 		{"CreateCharge", func() error {
 			_, err := p.CreateCharge(ctx, payments.ChargeParams{Amount: 100})
+			return err
+		}},
+		{"CreateStablecoinDepositIntent", func() error {
+			_, err := p.CreateStablecoinDepositIntent(ctx, payments.StablecoinDepositIntentParams{Amount: 100})
 			return err
 		}},
 		{"CaptureCharge", func() error {

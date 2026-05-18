@@ -69,6 +69,8 @@ Every step takes a `module` config field selecting the `payments.provider` modul
 
 `step.payment_stablecoin_deposit_intent` is Stripe-only private-preview support for [Stripe deposit-mode stablecoin payments](https://docs.stripe.com/payments/deposit-mode-stablecoin-payments). It creates a confirmed `crypto` PaymentIntent with `mode=deposit`, requests deposit addresses for `base`, `tempo`, and/or `solana`, and returns address/token details for downstream settlement evidence. The step intentionally fails closed outside the documented USDC networks.
 
+For provider workflows that hand stablecoin evidence to `workflow-compute`, see [`docs/WFCOMPUTE-SETTLEMENT.md`](docs/WFCOMPUTE-SETTLEMENT.md).
+
 ## CLI commands
 
 ```

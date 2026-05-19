@@ -4,6 +4,13 @@ All notable changes to this plugin are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and version numbers
 follow SemVer.
 
+## [Unreleased]
+
+### Added
+- Verified banner in README — plugin confirmed used in production at buymywishlist.
+- CONTRIBUTING.md with local dev instructions and PR checklist.
+- `examples/minimal/config.yaml` — runnable `step.payment_charge` example without live credentials.
+
 ## [0.4.5] - 2026-05-13
 
 ### Fixed

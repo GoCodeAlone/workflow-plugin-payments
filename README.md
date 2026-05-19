@@ -1,6 +1,6 @@
 # workflow-plugin-payments
 
-> ✅ **Verified** — used in production at [buymywishlist](https://github.com/GoCodeAlone/buymywishlist). This plugin has been validated end-to-end in a merged main-branch wfctl.yaml of an active GoCodeAlone project.
+> ✅ **Verified** — used in production at **buymywishlist**. This plugin has been validated end-to-end in a merged main-branch wfctl.yaml of an active GoCodeAlone project.
 
 Multi-provider payment processing for the [GoCodeAlone/workflow](https://github.com/GoCodeAlone/workflow) engine. Stripe and PayPal today; designed so additional providers slot in behind the same `payments.provider` module type.
 

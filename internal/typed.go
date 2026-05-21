@@ -125,6 +125,12 @@ func (p *paymentsPlugin) CreateTypedStep(typeName, name string, config *anypb.An
 			&paymentsv1.PaymentChargeInput{},
 			handleTypedCharge,
 		).CreateTypedStep(typeName, name, config)
+	case "step.payment_stablecoin_deposit_intent":
+		return sdk.NewTypedStepFactory(typeName,
+			&paymentsv1.PaymentStablecoinDepositIntentConfig{},
+			&paymentsv1.PaymentStablecoinDepositIntentInput{},
+			handleTypedStablecoinDepositIntent,
+		).CreateTypedStep(typeName, name, config)
 	case "step.payment_capture":
 		return sdk.NewTypedStepFactory(typeName,
 			&paymentsv1.PaymentCaptureConfig{},
@@ -233,6 +239,78 @@ func typedModuleName(module string) string {
 		return module
 	}
 	return "payments"
+}
+
+func handleTypedStablecoinDepositIntent(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentStablecoinDepositIntentConfig, *paymentsv1.PaymentStablecoinDepositIntentInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentStablecoinDepositIntentOutput], error) {
+	moduleName := typedModuleName(req.Config.Module)
+	provider, ok := GetProvider(moduleName)
+	if !ok {
+		return &sdk.TypedStepResult[*paymentsv1.PaymentStablecoinDepositIntentOutput]{
+			Output: &paymentsv1.PaymentStablecoinDepositIntentOutput{Error: "payment provider not found: " + moduleName},
+		}, nil
+	}
+	amount := parseConfigInt64(req.Config.Amount)
+	if amount == 0 {
+		amount = req.Input.Amount
+	}
+	currency := req.Config.Currency
+	if currency == "" {
+		currency = req.Input.Currency
+	}
+	networks := req.Config.Networks
+	if len(networks) == 0 {
+		networks = req.Input.Networks
+	}
+	stablecoin := req.Config.Stablecoin
+	if stablecoin == "" {
+		stablecoin = req.Input.Stablecoin
+	}
+	idempotencyKey := req.Config.IdempotencyKey
+	if idempotencyKey == "" {
+		idempotencyKey = req.Input.IdempotencyKey
+	}
+	description := req.Config.Description
+	if description == "" {
+		description = req.Input.Description
+	}
+	if amount == 0 {
+		return &sdk.TypedStepResult[*paymentsv1.PaymentStablecoinDepositIntentOutput]{
+			Output: &paymentsv1.PaymentStablecoinDepositIntentOutput{Error: "amount is required"},
+		}, nil
+	}
+	intent, err := provider.CreateStablecoinDepositIntent(ctx, payments.StablecoinDepositIntentParams{
+		Amount:         amount,
+		Currency:       currency,
+		Networks:       networks,
+		Stablecoin:     stablecoin,
+		IdempotencyKey: idempotencyKey,
+		Description:    description,
+	})
+	if err != nil {
+		return &sdk.TypedStepResult[*paymentsv1.PaymentStablecoinDepositIntentOutput]{
+			Output: &paymentsv1.PaymentStablecoinDepositIntentOutput{Error: err.Error()},
+		}, nil
+	}
+	addresses := make([]*paymentsv1.StablecoinDepositAddress, 0, len(intent.DepositAddresses))
+	for _, address := range intent.DepositAddresses {
+		addresses = append(addresses, &paymentsv1.StablecoinDepositAddress{
+			Network:              address.Network,
+			Address:              address.Address,
+			Stablecoin:           address.Stablecoin,
+			TokenContractAddress: address.TokenContractAddress,
+		})
+	}
+	return &sdk.TypedStepResult[*paymentsv1.PaymentStablecoinDepositIntentOutput]{
+		Output: &paymentsv1.PaymentStablecoinDepositIntentOutput{
+			PaymentIntentId:  intent.ID,
+			ClientSecret:     intent.ClientSecret,
+			Status:           intent.Status,
+			Amount:           intent.Amount,
+			Currency:         intent.Currency,
+			Stablecoin:       intent.Stablecoin,
+			DepositAddresses: addresses,
+		},
+	}, nil
 }
 
 func handleTypedCharge(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentChargeConfig, *paymentsv1.PaymentChargeInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentChargeOutput], error) {

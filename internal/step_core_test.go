@@ -70,6 +70,36 @@ func TestChargeStep_MissingAmount(t *testing.T) {
 	}
 }
 
+func TestStablecoinDepositIntentStep(t *testing.T) {
+	setupMockModule(t, "test-stablecoin")
+	step, err := newStablecoinDepositIntentStep("stablecoin", map[string]any{"module": "test-stablecoin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := step.Execute(context.Background(), nil, nil,
+		map[string]any{
+			"amount":      int64(5000),
+			"currency":    "usd",
+			"networks":    []any{"base", "solana"},
+			"stablecoin":  "usdc",
+			"description": "BMW settlement",
+		},
+		nil, map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Output["error"] != nil {
+		t.Fatalf("unexpected error: %v", result.Output["error"])
+	}
+	if result.Output["payment_intent_id"] == "" {
+		t.Fatal("expected payment_intent_id")
+	}
+	addresses, ok := result.Output["deposit_addresses"].([]map[string]any)
+	if !ok || len(addresses) != 2 {
+		t.Fatalf("deposit_addresses = %#v, want two map entries", result.Output["deposit_addresses"])
+	}
+}
+
 func TestCaptureStep(t *testing.T) {
 	mock := setupMockModule(t, "test-cap")
 	charge, _ := mock.CreateCharge(context.Background(), chargeParamsManual())

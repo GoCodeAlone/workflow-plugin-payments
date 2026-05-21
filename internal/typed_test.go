@@ -167,6 +167,31 @@ func TestTypedCharge_Handler_Success(t *testing.T) {
 	}
 }
 
+func TestTypedStablecoinDepositIntent_Handler_Success(t *testing.T) {
+	setupMockModule(t, "typed-stablecoin-ok")
+	result, err := handleTypedStablecoinDepositIntent(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentStablecoinDepositIntentConfig, *paymentsv1.PaymentStablecoinDepositIntentInput]{
+		Config: &paymentsv1.PaymentStablecoinDepositIntentConfig{Module: "typed-stablecoin-ok"},
+		Input: &paymentsv1.PaymentStablecoinDepositIntentInput{
+			Amount:     5000,
+			Currency:   "usd",
+			Networks:   []string{"base", "solana"},
+			Stablecoin: "usdc",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected output error: %s", result.Output.Error)
+	}
+	if result.Output.PaymentIntentId == "" {
+		t.Fatal("expected payment_intent_id")
+	}
+	if len(result.Output.DepositAddresses) != 2 {
+		t.Fatalf("deposit_addresses = %#v, want two", result.Output.DepositAddresses)
+	}
+}
+
 func TestTypedCapture_Handler_Success(t *testing.T) {
 	mock := setupMockModule(t, "typed-capture-ok")
 	charge, _ := mock.CreateCharge(context.Background(), chargeParamsManual())
@@ -380,14 +405,14 @@ func TestTypedWebhookEndpointEnsure_Handler_ConfigDescription(t *testing.T) {
 // well-formed numeric string→int64.
 func TestParseConfigInt64(t *testing.T) {
 	cases := map[string]int64{
-		"":      0,
-		"0":     0,
-		"42":    42,
-		"4200":  4200,
-		"-100":  -100,
-		"abc":   0,
-		"1.5":   0,
-		"99 ":   0, // surrounding whitespace not tolerated
+		"":     0,
+		"0":    0,
+		"42":   42,
+		"4200": 4200,
+		"-100": -100,
+		"abc":  0,
+		"1.5":  0,
+		"99 ":  0, // surrounding whitespace not tolerated
 	}
 	for in, want := range cases {
 		if got := parseConfigInt64(in); got != want {
@@ -412,7 +437,7 @@ func TestParseConfigBool(t *testing.T) {
 		{"True", false, true},
 		{"1", false, true},
 		{"0", true, false},
-		{"yes", true, true},  // garbage → fallback
+		{"yes", true, true}, // garbage → fallback
 		{"nope", false, false},
 	}
 	for _, tc := range cases {

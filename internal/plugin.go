@@ -17,7 +17,7 @@ var (
 
 // Version is set at build time via -ldflags
 // "-X github.com/GoCodeAlone/workflow-plugin-payments/internal.Version=X.Y.Z"
-var Version = "dev"
+var Version = "0.0.0"
 
 // paymentsPlugin implements sdk.PluginProvider, sdk.ModuleProvider, and sdk.StepProvider.
 type paymentsPlugin struct{}

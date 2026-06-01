@@ -1,6 +1,6 @@
 {
     "name": "workflow-plugin-payments",
-    "version": "0.4.8",
+    "version": "0.0.0",
     "description": "Multi-provider payment processing plugin (Stripe, PayPal)",
     "author": "GoCodeAlone",
     "license": "Apache-2.0",

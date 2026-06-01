@@ -56,7 +56,8 @@ jobs:
           fi
           "${{ runner.temp }}/wfctl-bin/wfctl" plugin verify-capabilities --binary "$BIN" .
       - name: Verify shipped plugin.json carries tag (post-build)
-        run: '"${{ runner.temp }}/wfctl-bin/wfctl" plugin validate-contract --for-publish --tag ${{ github.ref_name }} --release-dir . .'
+        run: |
+          "${{ runner.temp }}/wfctl-bin/wfctl" plugin validate-contract --for-publish --tag ${{ github.ref_name }} --release-dir . .
       - name: Publish GitHub release
         if: ${{ success() }}
         env:

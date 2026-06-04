@@ -380,14 +380,14 @@ func TestTypedWebhookEndpointEnsure_Handler_ConfigDescription(t *testing.T) {
 // well-formed numeric string→int64.
 func TestParseConfigInt64(t *testing.T) {
 	cases := map[string]int64{
-		"":      0,
-		"0":     0,
-		"42":    42,
-		"4200":  4200,
-		"-100":  -100,
-		"abc":   0,
-		"1.5":   0,
-		"99 ":   0, // surrounding whitespace not tolerated
+		"":     0,
+		"0":    0,
+		"42":   42,
+		"4200": 4200,
+		"-100": -100,
+		"abc":  0,
+		"1.5":  0,
+		"99 ":  0, // surrounding whitespace not tolerated
 	}
 	for in, want := range cases {
 		if got := parseConfigInt64(in); got != want {
@@ -412,7 +412,7 @@ func TestParseConfigBool(t *testing.T) {
 		{"True", false, true},
 		{"1", false, true},
 		{"0", true, false},
-		{"yes", true, true},  // garbage → fallback
+		{"yes", true, true}, // garbage → fallback
 		{"nope", false, false},
 	}
 	for _, tc := range cases {
@@ -805,6 +805,42 @@ func TestTypedSubscriptionCreate_Handler_MissingPriceAndInline(t *testing.T) {
 	}
 	if result.Output.Error == "" {
 		t.Error("expected error when neither price_id nor inline-pricing supplied")
+	}
+}
+
+func TestTypedCheckoutCreate_Handler_ConfigInlineSubscriptionMetadata(t *testing.T) {
+	mock := setupMockModule(t, "typed-checkout-inline")
+	result, err := handleTypedCheckoutCreate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentCheckoutCreateConfig, *paymentsv1.PaymentCheckoutCreateInput]{
+		Config: &paymentsv1.PaymentCheckoutCreateConfig{
+			Module:               "typed-checkout-inline",
+			CustomerId:           "cus_checkout",
+			Amount:               "3300",
+			Currency:             "usd",
+			Interval:             "month",
+			ProductName:          "Wishlist contribution",
+			SuccessUrl:           "https://example.com/success",
+			CancelUrl:            "https://example.com/cancel",
+			Mode:                 "subscription",
+			AllowPromotionCodes:  "true",
+			Metadata:             map[string]string{"wishlist_id": "wish_checkout", "target_type": "item"},
+			SubscriptionMetadata: map[string]string{"recurring_contribution_id": "rc_checkout"},
+		},
+		Input: &paymentsv1.PaymentCheckoutCreateInput{},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Fatalf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.SessionId == "" || result.Output.Url == "" {
+		t.Fatalf("expected checkout session output, got %#v", result.Output)
+	}
+	if mock.lastCheckout.Amount != 3300 {
+		t.Fatalf("expected amount=3300, got %d", mock.lastCheckout.Amount)
+	}
+	if mock.lastCheckout.SubscriptionMetadata["recurring_contribution_id"] != "rc_checkout" {
+		t.Fatalf("expected subscription metadata passthrough, got %#v", mock.lastCheckout.SubscriptionMetadata)
 	}
 }
 

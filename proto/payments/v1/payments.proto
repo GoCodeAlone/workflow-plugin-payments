@@ -269,6 +269,21 @@ message PaymentSubscriptionCancelOutput {
 // PaymentCheckoutCreateConfig configures the step.payment_checkout_create step.
 message PaymentCheckoutCreateConfig {
   string module = 1;
+  string customer_id = 2;
+  string customer_email = 3;
+  string price_id = 4;
+  // amount is expressed as a string so YAML templates can supply it directly
+  // under STRICT_PROTO dispatch. Handlers parse via strconv.ParseInt.
+  string amount = 5;
+  string currency = 6;
+  string interval = 7;
+  string product_name = 8;
+  string success_url = 9;
+  string cancel_url = 10;
+  string mode = 11;
+  string allow_promotion_codes = 12;
+  map<string, string> metadata = 13;
+  map<string, string> subscription_metadata = 14;
 }
 
 // PaymentCheckoutCreateInput is the input for step.payment_checkout_create.
@@ -278,6 +293,14 @@ message PaymentCheckoutCreateInput {
   string success_url = 3;
   string cancel_url = 4;
   string mode = 5;
+  int64 amount = 6;
+  string currency = 7;
+  string interval = 8;
+  string product_name = 9;
+  string customer_email = 10;
+  bool allow_promotion_codes = 11;
+  map<string, string> metadata = 12;
+  map<string, string> subscription_metadata = 13;
 }
 
 // PaymentCheckoutCreateOutput is the output from step.payment_checkout_create.

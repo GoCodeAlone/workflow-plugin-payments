@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/GoCodeAlone/workflow-plugin-payments/payments"
-	stripe "github.com/stripe/stripe-go/v82"
+	stripe "github.com/stripe/stripe-go/v85"
 )
 
 // newTestStripeProvider creates a stripeProvider wired to a mock HTTP server.
@@ -246,7 +246,7 @@ func TestStripeCalculateFees(t *testing.T) {
 
 func TestStripeVerifyWebhook_Valid(t *testing.T) {
 	secret := "whsec_test123"
-	payload := []byte(`{"id":"evt_1","type":"payment_intent.succeeded","data":{"object":{"id":"pi_123","amount_received":2500,"metadata":{"wishlist_id":"wish_123"}}}}`)
+	payload := []byte(`{"id":"evt_1","object":"event","type":"payment_intent.succeeded","data":{"object":{"id":"pi_123","amount_received":2500,"metadata":{"wishlist_id":"wish_123"}}}}`)
 	ts := time.Now().Unix()
 	sigHeader := buildStripeSignatureHeader(payload, ts, secret)
 
@@ -366,5 +366,42 @@ func TestStripeAPICallWithEmptySecretKey(t *testing.T) {
 				t.Fatalf("%s: expected payments.ErrStripeKeyMissing, got: %v", tc.name, err)
 			}
 		})
+	}
+}
+
+func TestStripeCheckoutLineItem_InlineSubscriptionPriceData(t *testing.T) {
+	item, err := checkoutLineItem(payments.CheckoutParams{
+		Amount:      4200,
+		Currency:    "usd",
+		Interval:    "month",
+		ProductName: "Wishlist contribution",
+	}, "subscription")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if item.PriceData == nil {
+		t.Fatal("expected inline price_data")
+	}
+	if got := *item.PriceData.UnitAmount; got != 4200 {
+		t.Fatalf("expected unit_amount=4200, got %d", got)
+	}
+	if got := *item.PriceData.Currency; got != "usd" {
+		t.Fatalf("expected currency=usd, got %q", got)
+	}
+	if item.PriceData.Recurring == nil || *item.PriceData.Recurring.Interval != "month" {
+		t.Fatalf("expected recurring interval=month, got %#v", item.PriceData.Recurring)
+	}
+	if item.PriceData.ProductData == nil || *item.PriceData.ProductData.Name != "Wishlist contribution" {
+		t.Fatalf("expected product name, got %#v", item.PriceData.ProductData)
+	}
+}
+
+func TestStripeCheckoutLineItem_SubscriptionInlineRequiresInterval(t *testing.T) {
+	_, err := checkoutLineItem(payments.CheckoutParams{
+		Amount:   4200,
+		Currency: "usd",
+	}, "subscription")
+	if err == nil {
+		t.Fatal("expected error for subscription inline pricing without interval")
 	}
 }

@@ -11,19 +11,19 @@ import (
 	"strings"
 
 	"github.com/GoCodeAlone/workflow-plugin-payments/payments"
-	stripe "github.com/stripe/stripe-go/v82"
-	"github.com/stripe/stripe-go/v82/billingportal/session"
-	checkoutsession "github.com/stripe/stripe-go/v82/checkout/session"
-	"github.com/stripe/stripe-go/v82/customer"
-	"github.com/stripe/stripe-go/v82/invoice"
-	"github.com/stripe/stripe-go/v82/paymentintent"
-	"github.com/stripe/stripe-go/v82/paymentmethod"
-	"github.com/stripe/stripe-go/v82/payout"
-	"github.com/stripe/stripe-go/v82/refund"
-	"github.com/stripe/stripe-go/v82/subscription"
-	"github.com/stripe/stripe-go/v82/transfer"
-	"github.com/stripe/stripe-go/v82/webhook"
-	"github.com/stripe/stripe-go/v82/webhookendpoint"
+	stripe "github.com/stripe/stripe-go/v85"
+	"github.com/stripe/stripe-go/v85/billingportal/session"
+	checkoutsession "github.com/stripe/stripe-go/v85/checkout/session"
+	"github.com/stripe/stripe-go/v85/customer"
+	"github.com/stripe/stripe-go/v85/invoice"
+	"github.com/stripe/stripe-go/v85/paymentintent"
+	"github.com/stripe/stripe-go/v85/paymentmethod"
+	"github.com/stripe/stripe-go/v85/payout"
+	"github.com/stripe/stripe-go/v85/refund"
+	"github.com/stripe/stripe-go/v85/subscription"
+	"github.com/stripe/stripe-go/v85/transfer"
+	"github.com/stripe/stripe-go/v85/webhook"
+	"github.com/stripe/stripe-go/v85/webhookendpoint"
 )
 
 // Webhook-ensure mode constants for WebhookEndpointEnsureParams.Mode.
@@ -345,17 +345,32 @@ func (p *stripeProvider) CreateCheckoutSession(_ context.Context, cp payments.Ch
 	if mode == "" {
 		mode = "subscription"
 	}
+	lineItem, err := checkoutLineItem(cp, mode)
+	if err != nil {
+		return nil, err
+	}
 	params := &stripe.CheckoutSessionParams{
-		Customer:   stripe.String(cp.CustomerID),
 		Mode:       stripe.String(mode),
 		SuccessURL: stripe.String(cp.SuccessURL),
 		CancelURL:  stripe.String(cp.CancelURL),
-		LineItems: []*stripe.CheckoutSessionLineItemParams{
-			{
-				Price:    stripe.String(cp.PriceID),
-				Quantity: stripe.Int64(1),
-			},
-		},
+		LineItems:  []*stripe.CheckoutSessionLineItemParams{lineItem},
+	}
+	if cp.CustomerID != "" {
+		params.Customer = stripe.String(cp.CustomerID)
+	} else if cp.CustomerEmail != "" {
+		params.CustomerEmail = stripe.String(cp.CustomerEmail)
+	}
+	if cp.AllowPromotionCodes {
+		params.AllowPromotionCodes = stripe.Bool(true)
+	}
+	for k, v := range cp.Metadata {
+		params.AddMetadata(k, v)
+	}
+	if mode == "subscription" && len(cp.SubscriptionMetadata) > 0 {
+		params.SubscriptionData = &stripe.CheckoutSessionSubscriptionDataParams{}
+		for k, v := range cp.SubscriptionMetadata {
+			params.SubscriptionData.AddMetadata(k, v)
+		}
 	}
 	sess, err := checkoutsession.New(params)
 	if err != nil {
@@ -364,6 +379,41 @@ func (p *stripeProvider) CreateCheckoutSession(_ context.Context, cp payments.Ch
 	return &payments.CheckoutSession{
 		ID:  sess.ID,
 		URL: sess.URL,
+	}, nil
+}
+
+func checkoutLineItem(cp payments.CheckoutParams, mode string) (*stripe.CheckoutSessionLineItemParams, error) {
+	if cp.PriceID != "" {
+		return &stripe.CheckoutSessionLineItemParams{
+			Price:    stripe.String(cp.PriceID),
+			Quantity: stripe.Int64(1),
+		}, nil
+	}
+	if cp.Amount <= 0 || cp.Currency == "" {
+		return nil, fmt.Errorf("stripe CreateCheckoutSession: requires price_id or (amount + currency)")
+	}
+	if mode == "subscription" && cp.Interval == "" {
+		return nil, fmt.Errorf("stripe CreateCheckoutSession: subscription inline pricing requires interval")
+	}
+	productName := cp.ProductName
+	if productName == "" {
+		productName = "Payment"
+	}
+	priceData := &stripe.CheckoutSessionLineItemPriceDataParams{
+		Currency:   stripe.String(cp.Currency),
+		UnitAmount: stripe.Int64(cp.Amount),
+		ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+			Name: stripe.String(productName),
+		},
+	}
+	if mode == "subscription" {
+		priceData.Recurring = &stripe.CheckoutSessionLineItemPriceDataRecurringParams{
+			Interval: stripe.String(cp.Interval),
+		}
+	}
+	return &stripe.CheckoutSessionLineItemParams{
+		PriceData: priceData,
+		Quantity:  stripe.Int64(1),
 	}, nil
 }
 

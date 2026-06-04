@@ -83,11 +83,19 @@ type Subscription struct {
 
 // CheckoutParams holds parameters for creating a hosted checkout session.
 type CheckoutParams struct {
-	CustomerID string
-	PriceID    string
-	SuccessURL string
-	CancelURL  string
-	Mode       string // "subscription", "payment", "setup"
+	CustomerID           string
+	CustomerEmail        string
+	PriceID              string
+	Amount               int64
+	Currency             string
+	Interval             string
+	ProductName          string
+	SuccessURL           string
+	CancelURL            string
+	Mode                 string // "subscription", "payment", "setup"
+	Metadata             map[string]string
+	SubscriptionMetadata map[string]string
+	AllowPromotionCodes  bool
 }
 
 // CheckoutSession represents a hosted checkout session.

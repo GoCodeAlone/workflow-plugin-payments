@@ -581,12 +581,68 @@ func handleTypedCheckoutCreate(ctx context.Context, req sdk.TypedStepRequest[*pa
 			Output: &paymentsv1.PaymentCheckoutCreateOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
+	customerID := req.Config.CustomerId
+	if customerID == "" {
+		customerID = req.Input.CustomerId
+	}
+	customerEmail := req.Config.CustomerEmail
+	if customerEmail == "" {
+		customerEmail = req.Input.CustomerEmail
+	}
+	priceID := req.Config.PriceId
+	if priceID == "" {
+		priceID = req.Input.PriceId
+	}
+	amount := parseConfigInt64(req.Config.Amount)
+	if amount == 0 {
+		amount = req.Input.Amount
+	}
+	currency := req.Config.Currency
+	if currency == "" {
+		currency = req.Input.Currency
+	}
+	interval := req.Config.Interval
+	if interval == "" {
+		interval = req.Input.Interval
+	}
+	productName := req.Config.ProductName
+	if productName == "" {
+		productName = req.Input.ProductName
+	}
+	successURL := req.Config.SuccessUrl
+	if successURL == "" {
+		successURL = req.Input.SuccessUrl
+	}
+	cancelURL := req.Config.CancelUrl
+	if cancelURL == "" {
+		cancelURL = req.Input.CancelUrl
+	}
+	mode := req.Config.Mode
+	if mode == "" {
+		mode = req.Input.Mode
+	}
+	metadata := req.Config.Metadata
+	if len(metadata) == 0 {
+		metadata = req.Input.Metadata
+	}
+	subscriptionMetadata := req.Config.SubscriptionMetadata
+	if len(subscriptionMetadata) == 0 {
+		subscriptionMetadata = req.Input.SubscriptionMetadata
+	}
 	sess, err := provider.CreateCheckoutSession(ctx, payments.CheckoutParams{
-		CustomerID: req.Input.CustomerId,
-		PriceID:    req.Input.PriceId,
-		SuccessURL: req.Input.SuccessUrl,
-		CancelURL:  req.Input.CancelUrl,
-		Mode:       req.Input.Mode,
+		CustomerID:           customerID,
+		CustomerEmail:        customerEmail,
+		PriceID:              priceID,
+		Amount:               amount,
+		Currency:             currency,
+		Interval:             interval,
+		ProductName:          productName,
+		SuccessURL:           successURL,
+		CancelURL:            cancelURL,
+		Mode:                 mode,
+		Metadata:             metadata,
+		SubscriptionMetadata: subscriptionMetadata,
+		AllowPromotionCodes:  parseConfigBool(req.Config.AllowPromotionCodes, req.Input.AllowPromotionCodes),
 	})
 	if err != nil {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentCheckoutCreateOutput]{

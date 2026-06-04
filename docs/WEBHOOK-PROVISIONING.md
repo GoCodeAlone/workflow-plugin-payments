@@ -183,7 +183,7 @@ Per-environment endpoint isolation is enforced by the provider: Stripe issues di
 
 ### Stripe
 
-Implementation: `internal/provider_stripe.go`. Calls `webhookendpoint.{New,Update,Del,List}` from `github.com/stripe/stripe-go/v82`. Per-call client (`webhookendpoint.Client{B: ..., Key: secretKey}`) so concurrent module instances don't race the package-level `stripe.Key` global.
+Implementation: `internal/provider_stripe.go`. Calls `webhookendpoint.{New,Update,Del,List}` from `github.com/stripe/stripe-go/v85`. Per-call client (`webhookendpoint.Client{B: ..., Key: secretKey}`) so concurrent module instances don't race the package-level `stripe.Key` global.
 
 ### PayPal
 

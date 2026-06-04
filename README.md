@@ -69,6 +69,13 @@ step.payment_invoice_list
 
 Every step takes a `module` config field selecting the `payments.provider` module instance to dispatch to (defaults to `payments`). Outputs are scalar string/bool/number across the gRPC structpb boundary so they round-trip cleanly through pipeline state.
 
+`step.payment_checkout_create` supports hosted Stripe Checkout for both one-time
+and recurring payments. For recurring Checkout, set `mode: subscription` and
+provide either an existing `price_id` or inline price fields:
+`amount`, `currency`, `interval`, and optional `product_name`. `metadata` is
+attached to the Checkout Session; `subscription_metadata` is attached to the
+Stripe Subscription created by Checkout.
+
 ## CLI commands
 
 ```
@@ -89,7 +96,7 @@ The CLI surface is registered via [the plugin-CLI registry](https://github.com/G
 | | Version |
 |---|---|
 | `payments.PaymentProvider` Go interface | `WebhookEndpointEnsure` added at v0.3.0; latest release is the source of truth (see [releases](https://github.com/GoCodeAlone/workflow-plugin-payments/releases)) |
-| stripe-go | v82 |
+| stripe-go | v85 |
 | Minimum workflow engine | v0.3.12 (declared in `plugin.json:minEngineVersion`) |
 | Minimum wfctl for plugin-CLI dispatch | **v0.27.5** (4-fix lineage: `#591`/`#595`/`#612`/`#613`) |
 

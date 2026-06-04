@@ -11,19 +11,20 @@ import (
 
 // mockProvider is an in-memory PaymentProvider for testing.
 type mockProvider struct {
-	mu         sync.Mutex
-	charges    map[string]*payments.Charge
-	refunds    map[string]*payments.Refund
-	customers  map[string]*payments.Customer
-	subs       map[string]*payments.Subscription
-	sessions   map[string]*payments.CheckoutSession
-	portals    map[string]*payments.PortalSession
-	transfers  map[string]*payments.Transfer
-	payouts    map[string]*payments.Payout
-	invoices   []*payments.Invoice
-	pmethods   map[string]*payments.PaymentMethod
-	webhookErr error
-	counter    int
+	mu           sync.Mutex
+	charges      map[string]*payments.Charge
+	refunds      map[string]*payments.Refund
+	customers    map[string]*payments.Customer
+	subs         map[string]*payments.Subscription
+	sessions     map[string]*payments.CheckoutSession
+	lastCheckout payments.CheckoutParams
+	portals      map[string]*payments.PortalSession
+	transfers    map[string]*payments.Transfer
+	payouts      map[string]*payments.Payout
+	invoices     []*payments.Invoice
+	pmethods     map[string]*payments.PaymentMethod
+	webhookErr   error
+	counter      int
 }
 
 func newMockProvider() *mockProvider {
@@ -148,6 +149,7 @@ func (m *mockProvider) UpdateSubscription(_ context.Context, subscriptionID stri
 func (m *mockProvider) CreateCheckoutSession(_ context.Context, p payments.CheckoutParams) (*payments.CheckoutSession, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.lastCheckout = p
 	sess := &payments.CheckoutSession{
 		ID:  m.nextID("cs"),
 		URL: "https://checkout.example.com/" + m.nextID("sess"),

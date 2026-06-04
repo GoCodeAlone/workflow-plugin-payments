@@ -1,6 +1,9 @@
 package internal
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 // getModuleName returns the "module" key from a step config map, defaulting to "payments".
 func getModuleName(config map[string]any) string {
@@ -30,6 +33,23 @@ func resolveInt64(key string, current, config map[string]any) int64 {
 	return toInt64(config[key])
 }
 
+// resolveBool looks up key in current first, then config as bool.
+func resolveBool(key string, current, config map[string]any) bool {
+	if v, ok := toBool(current[key]); ok {
+		return v
+	}
+	v, _ := toBool(config[key])
+	return v
+}
+
+// resolveStringMap looks up key in current first, then config as map[string]string.
+func resolveStringMap(key string, current, config map[string]any) map[string]string {
+	if v := toStringMap(current[key]); len(v) > 0 {
+		return v
+	}
+	return toStringMap(config[key])
+}
+
 // resolveFloat64 looks up key in current first, then config as float64.
 func resolveFloat64(key string, current, config map[string]any) float64 {
 	if v := toFloat64(current[key]); v != 0 {
@@ -56,6 +76,33 @@ func toInt64(v any) int64 {
 		return n
 	}
 	return 0
+}
+
+func toBool(v any) (bool, bool) {
+	switch t := v.(type) {
+	case bool:
+		return t, true
+	case string:
+		b, err := strconv.ParseBool(t)
+		return b, err == nil
+	}
+	return false, false
+}
+
+func toStringMap(v any) map[string]string {
+	switch t := v.(type) {
+	case map[string]string:
+		return t
+	case map[string]any:
+		out := make(map[string]string, len(t))
+		for k, v := range t {
+			if s, ok := v.(string); ok {
+				out[k] = s
+			}
+		}
+		return out
+	}
+	return nil
 }
 
 func toFloat64(v any) float64 {

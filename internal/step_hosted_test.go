@@ -27,6 +27,86 @@ func TestCheckoutStep(t *testing.T) {
 	}
 }
 
+func TestCheckoutStep_SubscriptionInlinePriceAndMetadata(t *testing.T) {
+	mock := setupMockModule(t, "test-checkout-inline")
+
+	step, _ := newCheckoutStep("checkout", map[string]any{"module": "test-checkout-inline"})
+	result, err := step.Execute(context.Background(), nil, nil,
+		map[string]any{
+			"customer_id":           "cus_123",
+			"amount":                int64(2500),
+			"currency":              "usd",
+			"interval":              "month",
+			"product_name":          "Wishlist contribution",
+			"success_url":           "https://example.com/success",
+			"cancel_url":            "https://example.com/cancel",
+			"mode":                  "subscription",
+			"allow_promotion_codes": true,
+			"metadata": map[string]any{
+				"wishlist_id": "wish_123",
+				"target_type": "wishlist",
+			},
+			"subscription_metadata": map[string]string{
+				"recurring_contribution_id": "rc_123",
+			},
+		},
+		nil, map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Output["url"] == "" {
+		t.Error("expected url in result")
+	}
+	if mock.lastCheckout.CustomerID != "cus_123" {
+		t.Fatalf("expected customer_id passthrough, got %q", mock.lastCheckout.CustomerID)
+	}
+	if mock.lastCheckout.Amount != 2500 {
+		t.Fatalf("expected amount=2500, got %d", mock.lastCheckout.Amount)
+	}
+	if mock.lastCheckout.Currency != "usd" {
+		t.Fatalf("expected currency=usd, got %q", mock.lastCheckout.Currency)
+	}
+	if mock.lastCheckout.Interval != "month" {
+		t.Fatalf("expected interval=month, got %q", mock.lastCheckout.Interval)
+	}
+	if mock.lastCheckout.ProductName != "Wishlist contribution" {
+		t.Fatalf("expected product_name passthrough, got %q", mock.lastCheckout.ProductName)
+	}
+	if !mock.lastCheckout.AllowPromotionCodes {
+		t.Fatal("expected allow_promotion_codes passthrough")
+	}
+	if mock.lastCheckout.Metadata["wishlist_id"] != "wish_123" || mock.lastCheckout.Metadata["target_type"] != "wishlist" {
+		t.Fatalf("expected checkout metadata passthrough, got %#v", mock.lastCheckout.Metadata)
+	}
+	if mock.lastCheckout.SubscriptionMetadata["recurring_contribution_id"] != "rc_123" {
+		t.Fatalf("expected subscription metadata passthrough, got %#v", mock.lastCheckout.SubscriptionMetadata)
+	}
+}
+
+func TestCheckoutStep_CurrentFalseOverridesConfigBool(t *testing.T) {
+	mock := setupMockModule(t, "test-checkout-bool")
+
+	step, _ := newCheckoutStep("checkout", map[string]any{
+		"module":                "test-checkout-bool",
+		"allow_promotion_codes": true,
+	})
+	_, err := step.Execute(context.Background(), nil, nil,
+		map[string]any{
+			"customer_id":           "cus_123",
+			"price_id":              "price_123",
+			"success_url":           "https://example.com/success",
+			"cancel_url":            "https://example.com/cancel",
+			"allow_promotion_codes": false,
+		},
+		nil, map[string]any{"allow_promotion_codes": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mock.lastCheckout.AllowPromotionCodes {
+		t.Fatal("expected current allow_promotion_codes=false to override config=true")
+	}
+}
+
 func TestPortalStep(t *testing.T) {
 	setupMockModule(t, "test-portal")
 

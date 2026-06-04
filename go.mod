@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/GoCodeAlone/workflow v0.64.0
-	github.com/stripe/stripe-go/v82 v82.5.1
+	github.com/stripe/stripe-go/v85 v85.1.0
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 )
 

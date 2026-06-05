@@ -11,6 +11,7 @@ import (
 	paymentsv1 "github.com/GoCodeAlone/workflow-plugin-payments/proto/payments/v1"
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // parseConfigInt64 parses a string amount from a config-side proto field
@@ -692,30 +693,42 @@ func handleTypedWebhookVerify(ctx context.Context, req sdk.TypedStepRequest[*pay
 			Output: &paymentsv1.PaymentWebhookVerifyOutput{Error: "payment provider not found: " + moduleName},
 		}, nil
 	}
-	payload := []byte(req.Input.RequestBody)
+	payloadString := req.Input.RequestBody
+	if payloadString == "" {
+		payloadString, _ = req.Metadata["request_body"].(string)
+	}
+	if payloadString == "" {
+		payloadString, _ = req.Metadata["_raw_body"].(string)
+	}
+	payload := []byte(payloadString)
 	if len(payload) == 0 {
 		return &sdk.TypedStepResult[*paymentsv1.PaymentWebhookVerifyOutput]{
 			Output: &paymentsv1.PaymentWebhookVerifyOutput{Error: "missing webhook payload (request_body)"},
 		}, nil
 	}
 	headers := http.Header{}
-	if req.Input.StripeSignature != "" {
-		headers.Set("Stripe-Signature", req.Input.StripeSignature)
+	if sig := firstNonEmpty(
+		req.Input.StripeSignature,
+		stringFromAny(req.Metadata["Stripe-Signature"]),
+		stringFromAny(req.Metadata["stripe_signature"]),
+		stringFromAny(req.Metadata["webhook_signature"]),
+	); sig != "" {
+		headers.Set("Stripe-Signature", sig)
 	}
-	if req.Input.PaypalTransmissionId != "" {
-		headers.Set("Paypal-Transmission-Id", req.Input.PaypalTransmissionId)
+	if value := firstNonEmpty(req.Input.PaypalTransmissionId, stringFromAny(req.Metadata["Paypal-Transmission-Id"])); value != "" {
+		headers.Set("Paypal-Transmission-Id", value)
 	}
-	if req.Input.PaypalTransmissionSig != "" {
-		headers.Set("Paypal-Transmission-Sig", req.Input.PaypalTransmissionSig)
+	if value := firstNonEmpty(req.Input.PaypalTransmissionSig, stringFromAny(req.Metadata["Paypal-Transmission-Sig"])); value != "" {
+		headers.Set("Paypal-Transmission-Sig", value)
 	}
-	if req.Input.PaypalCertUrl != "" {
-		headers.Set("Paypal-Cert-Url", req.Input.PaypalCertUrl)
+	if value := firstNonEmpty(req.Input.PaypalCertUrl, stringFromAny(req.Metadata["Paypal-Cert-Url"])); value != "" {
+		headers.Set("Paypal-Cert-Url", value)
 	}
-	if req.Input.PaypalAuthAlgo != "" {
-		headers.Set("Paypal-Auth-Algo", req.Input.PaypalAuthAlgo)
+	if value := firstNonEmpty(req.Input.PaypalAuthAlgo, stringFromAny(req.Metadata["Paypal-Auth-Algo"])); value != "" {
+		headers.Set("Paypal-Auth-Algo", value)
 	}
-	if req.Input.PaypalTransmissionTime != "" {
-		headers.Set("Paypal-Transmission-Time", req.Input.PaypalTransmissionTime)
+	if value := firstNonEmpty(req.Input.PaypalTransmissionTime, stringFromAny(req.Metadata["Paypal-Transmission-Time"])); value != "" {
+		headers.Set("Paypal-Transmission-Time", value)
 	}
 	event, err := provider.VerifyWebhook(ctx, payload, headers)
 	if err != nil {
@@ -723,12 +736,36 @@ func handleTypedWebhookVerify(ctx context.Context, req sdk.TypedStepRequest[*pay
 			Output: &paymentsv1.PaymentWebhookVerifyOutput{Error: err.Error()},
 		}, nil
 	}
+	data, err := structpb.NewStruct(event.Data)
+	if err != nil {
+		return &sdk.TypedStepResult[*paymentsv1.PaymentWebhookVerifyOutput]{
+			Output: &paymentsv1.PaymentWebhookVerifyOutput{Error: "encode webhook data: " + err.Error()},
+		}, nil
+	}
 	return &sdk.TypedStepResult[*paymentsv1.PaymentWebhookVerifyOutput]{
 		Output: &paymentsv1.PaymentWebhookVerifyOutput{
 			EventType: event.Type,
 			EventId:   event.ID,
+			Data:      data,
+			Metadata:  event.Metadata,
 		},
 	}, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func stringFromAny(value any) string {
+	if str, ok := value.(string); ok {
+		return str
+	}
+	return ""
 }
 
 func handleTypedWebhookEndpointEnsure(ctx context.Context, req sdk.TypedStepRequest[*paymentsv1.PaymentWebhookEndpointEnsureConfig, *paymentsv1.PaymentWebhookEndpointEnsureInput]) (*sdk.TypedStepResult[*paymentsv1.PaymentWebhookEndpointEnsureOutput], error) {

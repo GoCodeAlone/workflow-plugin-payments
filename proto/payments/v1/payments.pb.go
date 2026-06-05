@@ -9,6 +9,7 @@ package paymentsv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -2380,6 +2381,8 @@ type PaymentWebhookVerifyOutput struct {
 	EventType     string                 `protobuf:"bytes,1,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
 	EventId       string                 `protobuf:"bytes,2,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	Data          *structpb.Struct       `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
+	Metadata      map[string]string      `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2433,6 +2436,20 @@ func (x *PaymentWebhookVerifyOutput) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *PaymentWebhookVerifyOutput) GetData() *structpb.Struct {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *PaymentWebhookVerifyOutput) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
 }
 
 // PaymentWebhookEndpointEnsureConfig configures the step.payment_webhook_endpoint_ensure step.
@@ -3508,7 +3525,7 @@ var File_proto_payments_v1_payments_proto protoreflect.FileDescriptor
 
 const file_proto_payments_v1_payments_proto_rawDesc = "" +
 	"\n" +
-	" proto/payments/v1/payments.proto\x12\x1cworkflow.plugins.payments.v1\"\xa0\x02\n" +
+	" proto/payments/v1/payments.proto\x12\x1cworkflow.plugins.payments.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xa0\x02\n" +
 	"\x0eProviderConfig\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x1d\n" +
 	"\n" +
@@ -3704,12 +3721,17 @@ const file_proto_payments_v1_payments_proto_rawDesc = "" +
 	"\x17paypal_transmission_sig\x18\x04 \x01(\tR\x15paypalTransmissionSig\x12&\n" +
 	"\x0fpaypal_cert_url\x18\x05 \x01(\tR\rpaypalCertUrl\x12(\n" +
 	"\x10paypal_auth_algo\x18\x06 \x01(\tR\x0epaypalAuthAlgo\x128\n" +
-	"\x18paypal_transmission_time\x18\a \x01(\tR\x16paypalTransmissionTime\"l\n" +
+	"\x18paypal_transmission_time\x18\a \x01(\tR\x16paypalTransmissionTime\"\xba\x02\n" +
 	"\x1aPaymentWebhookVerifyOutput\x12\x1d\n" +
 	"\n" +
 	"event_type\x18\x01 \x01(\tR\teventType\x12\x19\n" +
 	"\bevent_id\x18\x02 \x01(\tR\aeventId\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"\x9c\x01\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x12+\n" +
+	"\x04data\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04data\x12b\n" +
+	"\bmetadata\x18\x05 \x03(\v2F.workflow.plugins.payments.v1.PaymentWebhookVerifyOutput.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x9c\x01\n" +
 	"\"PaymentWebhookEndpointEnsureConfig\x12\x16\n" +
 	"\x06module\x18\x01 \x01(\tR\x06module\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x10\n" +
@@ -3795,7 +3817,7 @@ func file_proto_payments_v1_payments_proto_rawDescGZIP() []byte {
 	return file_proto_payments_v1_payments_proto_rawDescData
 }
 
-var file_proto_payments_v1_payments_proto_msgTypes = make([]protoimpl.MessageInfo, 56)
+var file_proto_payments_v1_payments_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
 var file_proto_payments_v1_payments_proto_goTypes = []any{
 	(*ProviderConfig)(nil),                     // 0: workflow.plugins.payments.v1.ProviderConfig
 	(*PaymentChargeConfig)(nil),                // 1: workflow.plugins.payments.v1.PaymentChargeConfig
@@ -3853,17 +3875,21 @@ var file_proto_payments_v1_payments_proto_goTypes = []any{
 	nil,                                        // 53: workflow.plugins.payments.v1.PaymentCheckoutCreateConfig.SubscriptionMetadataEntry
 	nil,                                        // 54: workflow.plugins.payments.v1.PaymentCheckoutCreateInput.MetadataEntry
 	nil,                                        // 55: workflow.plugins.payments.v1.PaymentCheckoutCreateInput.SubscriptionMetadataEntry
+	nil,                                        // 56: workflow.plugins.payments.v1.PaymentWebhookVerifyOutput.MetadataEntry
+	(*structpb.Struct)(nil),                    // 57: google.protobuf.Struct
 }
 var file_proto_payments_v1_payments_proto_depIdxs = []int32{
 	52, // 0: workflow.plugins.payments.v1.PaymentCheckoutCreateConfig.metadata:type_name -> workflow.plugins.payments.v1.PaymentCheckoutCreateConfig.MetadataEntry
 	53, // 1: workflow.plugins.payments.v1.PaymentCheckoutCreateConfig.subscription_metadata:type_name -> workflow.plugins.payments.v1.PaymentCheckoutCreateConfig.SubscriptionMetadataEntry
 	54, // 2: workflow.plugins.payments.v1.PaymentCheckoutCreateInput.metadata:type_name -> workflow.plugins.payments.v1.PaymentCheckoutCreateInput.MetadataEntry
 	55, // 3: workflow.plugins.payments.v1.PaymentCheckoutCreateInput.subscription_metadata:type_name -> workflow.plugins.payments.v1.PaymentCheckoutCreateInput.SubscriptionMetadataEntry
-	4,  // [4:4] is the sub-list for method output_type
-	4,  // [4:4] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	57, // 4: workflow.plugins.payments.v1.PaymentWebhookVerifyOutput.data:type_name -> google.protobuf.Struct
+	56, // 5: workflow.plugins.payments.v1.PaymentWebhookVerifyOutput.metadata:type_name -> workflow.plugins.payments.v1.PaymentWebhookVerifyOutput.MetadataEntry
+	6,  // [6:6] is the sub-list for method output_type
+	6,  // [6:6] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_proto_payments_v1_payments_proto_init() }
@@ -3877,7 +3903,7 @@ func file_proto_payments_v1_payments_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_payments_v1_payments_proto_rawDesc), len(file_proto_payments_v1_payments_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   56,
+			NumMessages:   57,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package workflow.plugins.payments.v1;
 
+import "google/protobuf/struct.proto";
+
 option go_package = "github.com/GoCodeAlone/workflow-plugin-payments/proto/payments/v1;paymentsv1";
 
 // ProviderConfig is the configuration for the payments.provider module.
@@ -349,6 +351,8 @@ message PaymentWebhookVerifyOutput {
   string event_type = 1;
   string event_id = 2;
   string error = 3;
+  google.protobuf.Struct data = 4;
+  map<string, string> metadata = 5;
 }
 
 // PaymentWebhookEndpointEnsureConfig configures the step.payment_webhook_endpoint_ensure step.

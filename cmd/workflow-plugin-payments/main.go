@@ -16,5 +16,5 @@ import (
 )
 
 func main() {
-	sdk.ServePluginFull(internal.NewPaymentsPlugin(), internal.NewCLIProvider(), nil)
+	sdk.ServePluginFull(internal.NewPaymentsPlugin(), internal.NewCLIProvider(), nil, sdk.WithBuildVersion(sdk.ResolveBuildVersion(internal.Version)))
 }

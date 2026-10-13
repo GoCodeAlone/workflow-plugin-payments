@@ -39,7 +39,7 @@ func (s *stablecoinDepositIntentStep) Execute(ctx context.Context, _ map[string]
 	if err != nil {
 		return &sdk.StepResult{Output: map[string]any{"error": err.Error()}}, nil
 	}
-	addresses := make([]map[string]any, 0, len(intent.DepositAddresses))
+	addresses := make([]any, 0, len(intent.DepositAddresses))
 	for _, address := range intent.DepositAddresses {
 		addresses = append(addresses, map[string]any{
 			"network":                address.Network,

@@ -1,0 +1,27 @@
+# examples/minimal/config.yaml — minimal workflow-plugin-payments example.
+# Demonstrates a payment charge step without live credentials.
+# Use sk_test_* keys from the Stripe dashboard for local testing.
+
+modules:
+    - name: stripe
+      type: payments.provider
+      config:
+        provider: stripe
+        secret_key: '{{config "stripe_secret_key"}}'
+        default_currency: usd
+
+pipelines:
+    charge-example:
+        trigger:
+            type: http
+            config:
+                path: /payments/charge
+                method: POST
+        steps:
+            - name: charge
+              type: step.payment_charge
+              config:
+                module: stripe
+                amount: "{{.body.amount}}"
+                currency: usd
+                description: "Example charge"

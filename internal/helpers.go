@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -33,11 +34,21 @@ func resolveInt64(key string, current, config map[string]any) int64 {
 	return toInt64(config[key])
 }
 
-func resolveStringSlice(key string, current, config map[string]any) []string {
-	if values := toStringSlice(current[key]); len(values) > 0 {
-		return values
+// resolveBool looks up key in current first, then config as bool.
+func resolveBool(key string, current, config map[string]any) bool {
+	if v, ok := toBool(current[key]); ok {
+		return v
 	}
-	return toStringSlice(config[key])
+	v, _ := toBool(config[key])
+	return v
+}
+
+// resolveStringMap looks up key in current first, then config as map[string]string.
+func resolveStringMap(key string, current, config map[string]any) map[string]string {
+	if v := toStringMap(current[key]); len(v) > 0 {
+		return v
+	}
+	return toStringMap(config[key])
 }
 
 // resolveFloat64 looks up key in current first, then config as float64.
@@ -68,24 +79,26 @@ func toInt64(v any) int64 {
 	return 0
 }
 
-func toStringSlice(v any) []string {
+func toBool(v any) (bool, bool) {
 	switch t := v.(type) {
-	case []string:
-		return t
-	case []any:
-		out := make([]string, 0, len(t))
-		for _, item := range t {
-			if s, ok := item.(string); ok && s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
+	case bool:
+		return t, true
 	case string:
-		parts := strings.Split(t, ",")
-		out := make([]string, 0, len(parts))
-		for _, part := range parts {
-			if s := strings.TrimSpace(part); s != "" {
-				out = append(out, s)
+		b, err := strconv.ParseBool(t)
+		return b, err == nil
+	}
+	return false, false
+}
+
+func toStringMap(v any) map[string]string {
+	switch t := v.(type) {
+	case map[string]string:
+		return t
+	case map[string]any:
+		out := make(map[string]string, len(t))
+		for k, v := range t {
+			if s, ok := v.(string); ok {
+				out[k] = s
 			}
 		}
 		return out
@@ -109,4 +122,36 @@ func toFloat64(v any) float64 {
 		return f
 	}
 	return 0
+}
+
+func resolveStringSlice(key string, current, config map[string]any) []string {
+	if values := toStringSlice(current[key]); len(values) > 0 {
+		return values
+	}
+	return toStringSlice(config[key])
+}
+
+func toStringSlice(v any) []string {
+	switch t := v.(type) {
+	case []string:
+		return t
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, item := range t {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case string:
+		parts := strings.Split(t, ",")
+		out := make([]string, 0, len(parts))
+		for _, part := range parts {
+			if s := strings.TrimSpace(part); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return nil
 }

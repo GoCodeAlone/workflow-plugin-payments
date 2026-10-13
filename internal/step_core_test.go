@@ -94,7 +94,7 @@ func TestStablecoinDepositIntentStep(t *testing.T) {
 	if result.Output["payment_intent_id"] == "" {
 		t.Fatal("expected payment_intent_id")
 	}
-	addresses, ok := result.Output["deposit_addresses"].([]map[string]any)
+	addresses, ok := result.Output["deposit_addresses"].([]any)
 	if !ok || len(addresses) != 2 {
 		t.Fatalf("deposit_addresses = %#v, want two map entries", result.Output["deposit_addresses"])
 	}

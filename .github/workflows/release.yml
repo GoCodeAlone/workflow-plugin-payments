@@ -24,6 +24,15 @@ jobs:
       - name: Configure Go private modules
         run: git config --global url."https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
+      - name: Install wfctl v0.63.2
+        run: |
+          mkdir -p "${RUNNER_TEMP}/wfctl-bin"
+          curl -sSfL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -o "${RUNNER_TEMP}/wfctl-bin/wfctl" \
+            "https://github.com/GoCodeAlone/workflow/releases/download/v0.63.2/wfctl-linux-amd64"
+          chmod +x "${RUNNER_TEMP}/wfctl-bin/wfctl"
+      - name: Validate plugin contract for publish (pre-build)
+        run: "${{ runner.temp }}/wfctl-bin/wfctl plugin validate-contract --for-publish --tag ${{ github.ref_name }} ."
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
@@ -33,8 +42,44 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOPRIVATE: github.com/GoCodeAlone/*
           GONOSUMCHECK: github.com/GoCodeAlone/*
+      # workflow#765: runtime truth-check via plugin verify-capabilities.
+      - name: Verify capabilities (runtime truth-check)
+        run: |
+          RUNNER_ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+          BIN=$(jq -r --arg arch "$RUNNER_ARCH" \
+            '[.[] | select(.type=="Binary" and .goos=="linux" and .goarch==$arch and (.name|startswith("workflow-plugin-payments")))] | .[0].path // ""' \
+            dist/artifacts.json)
+          if [ -z "$BIN" ] || [ "$BIN" = "null" ]; then
+            echo "::warning::No matching linux/$RUNNER_ARCH binary in dist/artifacts.json; skipping verify-capabilities"
+            jq '.[] | {name, type, goos, goarch, path}' dist/artifacts.json
+            exit 0
+          fi
+          "${{ runner.temp }}/wfctl-bin/wfctl" plugin verify-capabilities --binary "$BIN" .
+      - name: Verify shipped plugin.json carries tag (post-build)
+        run: |
+          "${{ runner.temp }}/wfctl-bin/wfctl" plugin validate-contract --for-publish --tag ${{ github.ref_name }} --release-dir . .
       - name: Publish GitHub release
         if: ${{ success() }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "${{ github.ref_name }}" --draft=false --repo "${{ github.repository }}"
+
+  notify-workflow-registry:
+    name: Notify workflow-registry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: release
+    if: >-
+      !github.event.deleted
+      && !contains(github.ref_name, '-')
+      && github.repository == 'GoCodeAlone/workflow-plugin-payments'
+    steps:
+      - name: Trigger registry manifest sync
+        uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697  # v4
+        with:
+          token: ${{ secrets.repo_dispatch_token }}
+          repository: GoCodeAlone/workflow-registry
+          event-type: plugin-release
+          client-payload: |-
+            {"plugin": "payments", "tag": "${{ github.ref_name }}"}

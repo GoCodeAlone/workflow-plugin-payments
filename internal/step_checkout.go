@@ -27,11 +27,19 @@ func (s *checkoutStep) Execute(ctx context.Context, _ map[string]any, _ map[stri
 	}
 
 	sess, err := provider.CreateCheckoutSession(ctx, payments.CheckoutParams{
-		CustomerID: resolveValue("customer_id", current, config),
-		PriceID:    resolveValue("price_id", current, config),
-		SuccessURL: resolveValue("success_url", current, config),
-		CancelURL:  resolveValue("cancel_url", current, config),
-		Mode:       resolveValue("mode", current, config),
+		CustomerID:           resolveValue("customer_id", current, config),
+		CustomerEmail:        resolveValue("customer_email", current, config),
+		PriceID:              resolveValue("price_id", current, config),
+		Amount:               resolveInt64("amount", current, config),
+		Currency:             resolveValue("currency", current, config),
+		Interval:             resolveValue("interval", current, config),
+		ProductName:          resolveValue("product_name", current, config),
+		SuccessURL:           resolveValue("success_url", current, config),
+		CancelURL:            resolveValue("cancel_url", current, config),
+		Mode:                 resolveValue("mode", current, config),
+		Metadata:             resolveStringMap("metadata", current, config),
+		SubscriptionMetadata: resolveStringMap("subscription_metadata", current, config),
+		AllowPromotionCodes:  resolveBool("allow_promotion_codes", current, config),
 	})
 	if err != nil {
 		return &sdk.StepResult{Output: map[string]any{"error": err.Error()}}, nil

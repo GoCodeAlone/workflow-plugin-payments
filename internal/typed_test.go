@@ -399,6 +399,40 @@ func TestTypedWebhookEndpointEnsure_Handler_ConfigDescription(t *testing.T) {
 	}
 }
 
+func TestTypedWebhookVerify_Handler_MetadataPayloadReturnsVerifiedData(t *testing.T) {
+	setupMockModule(t, "typed-wh-verify")
+	payload := `{"id":"evt_test","type":"payment_intent.succeeded"}`
+	result, err := handleTypedWebhookVerify(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentWebhookVerifyConfig, *paymentsv1.PaymentWebhookVerifyInput]{
+		Config: &paymentsv1.PaymentWebhookVerifyConfig{Module: "typed-wh-verify"},
+		Input:  &paymentsv1.PaymentWebhookVerifyInput{},
+		Metadata: map[string]any{
+			"request_body":     payload,
+			"Stripe-Signature": "t=1234,v1=abc",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Fatalf("unexpected output error: %s", result.Output.Error)
+	}
+	if result.Output.EventType != "payment_intent.succeeded" {
+		t.Fatalf("event_type = %q, want payment_intent.succeeded", result.Output.EventType)
+	}
+	if result.Output.Data == nil {
+		t.Fatal("expected verified data")
+	}
+	if got := result.Output.Data.Fields["id"].GetStringValue(); got != "pi_mock" {
+		t.Fatalf("data.id = %q, want pi_mock", got)
+	}
+	if got := result.Output.Data.Fields["raw"].GetStringValue(); got != payload {
+		t.Fatalf("data.raw = %q, want original payload", got)
+	}
+	if result.Output.Metadata["wishlist_id"] != "wishlist_mock" {
+		t.Fatalf("metadata wishlist_id = %q", result.Output.Metadata["wishlist_id"])
+	}
+}
+
 // --- v0.4.4: string-typed Config amount/bool fields (BMW YAML-template pattern) ---
 
 // TestParseConfigInt64 covers the helper's contract: empty/garbage→0,
@@ -830,6 +864,42 @@ func TestTypedSubscriptionCreate_Handler_MissingPriceAndInline(t *testing.T) {
 	}
 	if result.Output.Error == "" {
 		t.Error("expected error when neither price_id nor inline-pricing supplied")
+	}
+}
+
+func TestTypedCheckoutCreate_Handler_ConfigInlineSubscriptionMetadata(t *testing.T) {
+	mock := setupMockModule(t, "typed-checkout-inline")
+	result, err := handleTypedCheckoutCreate(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentCheckoutCreateConfig, *paymentsv1.PaymentCheckoutCreateInput]{
+		Config: &paymentsv1.PaymentCheckoutCreateConfig{
+			Module:               "typed-checkout-inline",
+			CustomerId:           "cus_checkout",
+			Amount:               "3300",
+			Currency:             "usd",
+			Interval:             "month",
+			ProductName:          "Wishlist contribution",
+			SuccessUrl:           "https://example.com/success",
+			CancelUrl:            "https://example.com/cancel",
+			Mode:                 "subscription",
+			AllowPromotionCodes:  "true",
+			Metadata:             map[string]string{"wishlist_id": "wish_checkout", "target_type": "item"},
+			SubscriptionMetadata: map[string]string{"recurring_contribution_id": "rc_checkout"},
+		},
+		Input: &paymentsv1.PaymentCheckoutCreateInput{},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Fatalf("unexpected error: %s", result.Output.Error)
+	}
+	if result.Output.SessionId == "" || result.Output.Url == "" {
+		t.Fatalf("expected checkout session output, got %#v", result.Output)
+	}
+	if mock.lastCheckout.Amount != 3300 {
+		t.Fatalf("expected amount=3300, got %d", mock.lastCheckout.Amount)
+	}
+	if mock.lastCheckout.SubscriptionMetadata["recurring_contribution_id"] != "rc_checkout" {
+		t.Fatalf("expected subscription metadata passthrough, got %#v", mock.lastCheckout.SubscriptionMetadata)
 	}
 }
 

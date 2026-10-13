@@ -12,19 +12,19 @@ import (
 	"strings"
 
 	"github.com/GoCodeAlone/workflow-plugin-payments/payments"
-	stripe "github.com/stripe/stripe-go/v82"
-	"github.com/stripe/stripe-go/v82/billingportal/session"
-	checkoutsession "github.com/stripe/stripe-go/v82/checkout/session"
-	"github.com/stripe/stripe-go/v82/customer"
-	"github.com/stripe/stripe-go/v82/invoice"
-	"github.com/stripe/stripe-go/v82/paymentintent"
-	"github.com/stripe/stripe-go/v82/paymentmethod"
-	"github.com/stripe/stripe-go/v82/payout"
-	"github.com/stripe/stripe-go/v82/refund"
-	"github.com/stripe/stripe-go/v82/subscription"
-	"github.com/stripe/stripe-go/v82/transfer"
-	"github.com/stripe/stripe-go/v82/webhook"
-	"github.com/stripe/stripe-go/v82/webhookendpoint"
+	stripe "github.com/stripe/stripe-go/v85"
+	"github.com/stripe/stripe-go/v85/billingportal/session"
+	checkoutsession "github.com/stripe/stripe-go/v85/checkout/session"
+	"github.com/stripe/stripe-go/v85/customer"
+	"github.com/stripe/stripe-go/v85/invoice"
+	"github.com/stripe/stripe-go/v85/paymentintent"
+	"github.com/stripe/stripe-go/v85/paymentmethod"
+	"github.com/stripe/stripe-go/v85/payout"
+	"github.com/stripe/stripe-go/v85/refund"
+	"github.com/stripe/stripe-go/v85/subscription"
+	"github.com/stripe/stripe-go/v85/transfer"
+	"github.com/stripe/stripe-go/v85/webhook"
+	"github.com/stripe/stripe-go/v85/webhookendpoint"
 )
 
 // Webhook-ensure mode constants for WebhookEndpointEnsureParams.Mode.
@@ -152,7 +152,6 @@ func (p *stripeProvider) CreateStablecoinDepositIntent(ctx context.Context, sp p
 	if err := p.checkKey(); err != nil {
 		return nil, err
 	}
-	p.setKey()
 	if sp.Amount <= 0 {
 		return nil, fmt.Errorf("stripe CreateStablecoinDepositIntent: amount is required")
 	}
@@ -199,11 +198,18 @@ func (p *stripeProvider) CreateStablecoinDepositIntent(ctx context.Context, sp p
 		params.AddMetadata(k, v)
 	}
 
-	pi, err := paymentintent.New(params)
+	client := paymentintent.Client{B: p.backendFor(stripe.APIBackend), Key: p.secretKey}
+	if client.B == nil {
+		client.B = stripe.GetBackend(stripe.APIBackend)
+	}
+	pi, err := client.New(params)
 	if err != nil {
 		return nil, fmt.Errorf("stripe CreateStablecoinDepositIntent: %w", err)
 	}
-	addresses := stripeStablecoinDepositAddresses(pi, stablecoin)
+	addresses, err := stripeStablecoinDepositAddresses(pi, stablecoin, networks)
+	if err != nil {
+		return nil, fmt.Errorf("stripe CreateStablecoinDepositIntent: %w", err)
+	}
 	return &payments.StablecoinDepositIntent{
 		ID:               pi.ID,
 		ClientSecret:     pi.ClientSecret,
@@ -242,9 +248,9 @@ func normalizeStablecoinDepositNetworks(networks []string) ([]string, error) {
 	return out, nil
 }
 
-func stripeStablecoinDepositAddresses(pi *stripe.PaymentIntent, stablecoin string) []payments.StablecoinDepositAddress {
+func stripeStablecoinDepositAddresses(pi *stripe.PaymentIntent, stablecoin string, networks []string) ([]payments.StablecoinDepositAddress, error) {
 	if pi == nil || pi.LastResponse == nil || len(pi.LastResponse.RawJSON) == 0 {
-		return nil
+		return nil, errors.New("stablecoin deposit evidence: provider response data is missing")
 	}
 	var raw struct {
 		NextAction struct {
@@ -260,12 +266,24 @@ func stripeStablecoinDepositAddresses(pi *stripe.PaymentIntent, stablecoin strin
 		} `json:"next_action"`
 	}
 	if err := json.Unmarshal(pi.LastResponse.RawJSON, &raw); err != nil {
-		return nil
+		// Decode errors can contain provider-controlled field names or values.
+		// Keep the outward error independent of the raw response.
+		return nil, errors.New("stablecoin deposit evidence: malformed provider response")
+	}
+	requested := make(map[string]struct{}, len(networks))
+	for _, network := range networks {
+		requested[network] = struct{}{}
 	}
 	addresses := make([]payments.StablecoinDepositAddress, 0, len(raw.NextAction.CryptoDisplayDetails.DepositAddresses))
 	for network, address := range raw.NextAction.CryptoDisplayDetails.DepositAddresses {
+		if _, ok := requested[network]; !ok {
+			return nil, errors.New("stablecoin deposit evidence: provider returned an unrequested network")
+		}
 		for _, token := range address.SupportedTokens {
 			if strings.EqualFold(token.TokenCurrency, stablecoin) {
+				if strings.TrimSpace(address.Address) == "" || strings.TrimSpace(token.TokenContractAddress) == "" {
+					return nil, errors.New("stablecoin deposit evidence: deposit address or token contract is missing")
+				}
 				addresses = append(addresses, payments.StablecoinDepositAddress{
 					Network:              network,
 					Address:              address.Address,
@@ -276,10 +294,13 @@ func stripeStablecoinDepositAddresses(pi *stripe.PaymentIntent, stablecoin strin
 			}
 		}
 	}
+	if len(addresses) == 0 {
+		return nil, errors.New("stablecoin deposit evidence: no usable USDC deposit addresses")
+	}
 	sort.Slice(addresses, func(i, j int) bool {
 		return addresses[i].Network < addresses[j].Network
 	})
-	return addresses
+	return addresses, nil
 }
 
 func (p *stripeProvider) CaptureCharge(_ context.Context, chargeID string, amount int64) (*payments.Charge, error) {
@@ -481,17 +502,32 @@ func (p *stripeProvider) CreateCheckoutSession(_ context.Context, cp payments.Ch
 	if mode == "" {
 		mode = "subscription"
 	}
+	lineItem, err := checkoutLineItem(cp, mode)
+	if err != nil {
+		return nil, err
+	}
 	params := &stripe.CheckoutSessionParams{
-		Customer:   stripe.String(cp.CustomerID),
 		Mode:       stripe.String(mode),
 		SuccessURL: stripe.String(cp.SuccessURL),
 		CancelURL:  stripe.String(cp.CancelURL),
-		LineItems: []*stripe.CheckoutSessionLineItemParams{
-			{
-				Price:    stripe.String(cp.PriceID),
-				Quantity: stripe.Int64(1),
-			},
-		},
+		LineItems:  []*stripe.CheckoutSessionLineItemParams{lineItem},
+	}
+	if cp.CustomerID != "" {
+		params.Customer = stripe.String(cp.CustomerID)
+	} else if cp.CustomerEmail != "" {
+		params.CustomerEmail = stripe.String(cp.CustomerEmail)
+	}
+	if cp.AllowPromotionCodes {
+		params.AllowPromotionCodes = stripe.Bool(true)
+	}
+	for k, v := range cp.Metadata {
+		params.AddMetadata(k, v)
+	}
+	if mode == "subscription" && len(cp.SubscriptionMetadata) > 0 {
+		params.SubscriptionData = &stripe.CheckoutSessionSubscriptionDataParams{}
+		for k, v := range cp.SubscriptionMetadata {
+			params.SubscriptionData.AddMetadata(k, v)
+		}
 	}
 	sess, err := checkoutsession.New(params)
 	if err != nil {
@@ -500,6 +536,41 @@ func (p *stripeProvider) CreateCheckoutSession(_ context.Context, cp payments.Ch
 	return &payments.CheckoutSession{
 		ID:  sess.ID,
 		URL: sess.URL,
+	}, nil
+}
+
+func checkoutLineItem(cp payments.CheckoutParams, mode string) (*stripe.CheckoutSessionLineItemParams, error) {
+	if cp.PriceID != "" {
+		return &stripe.CheckoutSessionLineItemParams{
+			Price:    stripe.String(cp.PriceID),
+			Quantity: stripe.Int64(1),
+		}, nil
+	}
+	if cp.Amount <= 0 || cp.Currency == "" {
+		return nil, fmt.Errorf("stripe CreateCheckoutSession: requires price_id or (amount + currency)")
+	}
+	if mode == "subscription" && cp.Interval == "" {
+		return nil, fmt.Errorf("stripe CreateCheckoutSession: subscription inline pricing requires interval")
+	}
+	productName := cp.ProductName
+	if productName == "" {
+		productName = "Payment"
+	}
+	priceData := &stripe.CheckoutSessionLineItemPriceDataParams{
+		Currency:   stripe.String(cp.Currency),
+		UnitAmount: stripe.Int64(cp.Amount),
+		ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+			Name: stripe.String(productName),
+		},
+	}
+	if mode == "subscription" {
+		priceData.Recurring = &stripe.CheckoutSessionLineItemPriceDataRecurringParams{
+			Interval: stripe.String(cp.Interval),
+		}
+	}
+	return &stripe.CheckoutSessionLineItemParams{
+		PriceData: priceData,
+		Quantity:  stripe.Int64(1),
 	}, nil
 }
 

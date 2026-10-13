@@ -17,6 +17,14 @@
     },
     {
       "kind": "step",
+      "type": "step.payment_stablecoin_deposit_intent",
+      "mode": "strict",
+      "config": "workflow.plugins.payments.v1.PaymentStablecoinDepositIntentConfig",
+      "input": "workflow.plugins.payments.v1.PaymentStablecoinDepositIntentInput",
+      "output": "workflow.plugins.payments.v1.PaymentStablecoinDepositIntentOutput"
+    },
+    {
+      "kind": "step",
       "type": "step.payment_capture",
       "mode": "strict",
       "config": "workflow.plugins.payments.v1.PaymentCaptureConfig",

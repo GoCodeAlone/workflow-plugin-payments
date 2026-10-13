@@ -167,6 +167,31 @@ func TestTypedCharge_Handler_Success(t *testing.T) {
 	}
 }
 
+func TestTypedStablecoinDepositIntent_Handler_Success(t *testing.T) {
+	setupMockModule(t, "typed-stablecoin-ok")
+	result, err := handleTypedStablecoinDepositIntent(context.Background(), sdk.TypedStepRequest[*paymentsv1.PaymentStablecoinDepositIntentConfig, *paymentsv1.PaymentStablecoinDepositIntentInput]{
+		Config: &paymentsv1.PaymentStablecoinDepositIntentConfig{Module: "typed-stablecoin-ok"},
+		Input: &paymentsv1.PaymentStablecoinDepositIntentInput{
+			Amount:     5000,
+			Currency:   "usd",
+			Networks:   []string{"base", "solana"},
+			Stablecoin: "usdc",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Output.Error != "" {
+		t.Errorf("unexpected output error: %s", result.Output.Error)
+	}
+	if result.Output.PaymentIntentId == "" {
+		t.Fatal("expected payment_intent_id")
+	}
+	if len(result.Output.DepositAddresses) != 2 {
+		t.Fatalf("deposit_addresses = %#v, want two", result.Output.DepositAddresses)
+	}
+}
+
 func TestTypedCapture_Handler_Success(t *testing.T) {
 	mock := setupMockModule(t, "typed-capture-ok")
 	charge, _ := mock.CreateCharge(context.Background(), chargeParamsManual())

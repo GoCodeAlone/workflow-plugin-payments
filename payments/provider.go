@@ -9,6 +9,8 @@ import (
 type PaymentProvider interface {
 	// CreateCharge creates a payment intent / order.
 	CreateCharge(ctx context.Context, p ChargeParams) (*Charge, error)
+	// CreateStablecoinDepositIntent creates a provider stablecoin deposit-mode PaymentIntent.
+	CreateStablecoinDepositIntent(ctx context.Context, p StablecoinDepositIntentParams) (*StablecoinDepositIntent, error)
 	// CaptureCharge captures a previously authorized charge.
 	CaptureCharge(ctx context.Context, chargeID string, amount int64) (*Charge, error)
 	// RefundCharge refunds a completed charge.

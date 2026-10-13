@@ -9,7 +9,7 @@ Multi-provider payment processing for the [GoCodeAlone/workflow](https://github.
 | Surface | Purpose |
 |---|---|
 | `payments.provider` module | Provider-backed runtime (Stripe, PayPal). Configures secret keys + defaults. |
-| 17 `step.payment_*` step types | Charge / capture / refund / fee-calculate / customer / subscription / checkout / portal / webhook verify + ensure / transfer / payout / invoice / payment-method ops. |
+| 18 `step.payment_*` step types | Charge / stablecoin deposit intent / capture / refund / fee-calculate / customer / subscription / checkout / portal / webhook verify + ensure / transfer / payout / invoice / payment-method ops. |
 | `wfctl payments` CLI | Plugin-CLI commands operators run without standing the engine up — e.g. one-shot webhook endpoint provisioning. |
 
 ## Install
@@ -57,17 +57,17 @@ See [`docs/SETUP.md`](docs/SETUP.md) for the full module schema, multi-tenant co
 
 ```
 step.payment_charge                    step.payment_subscription_create
-step.payment_capture                   step.payment_subscription_update
-step.payment_refund                    step.payment_subscription_cancel
-step.payment_customer_ensure           step.payment_checkout_create
-step.payment_fee_calculate             step.payment_portal_create
-step.payment_webhook_verify            step.payment_webhook_endpoint_ensure
-step.payment_transfer                  step.payment_method_attach
-step.payment_payout                    step.payment_method_list
-step.payment_invoice_list
+step.payment_stablecoin_deposit_intent step.payment_subscription_update
+step.payment_capture                   step.payment_subscription_cancel
+step.payment_refund                    step.payment_checkout_create
+step.payment_customer_ensure           step.payment_portal_create
+step.payment_fee_calculate             step.payment_webhook_endpoint_ensure
+step.payment_webhook_verify            step.payment_method_attach
+step.payment_transfer                  step.payment_method_list
+step.payment_payout                    step.payment_invoice_list
 ```
 
-Every step takes a `module` config field selecting the `payments.provider` module instance to dispatch to (defaults to `payments`). Outputs are scalar string/bool/number across the gRPC structpb boundary so they round-trip cleanly through pipeline state.
+Every step takes a `module` config field selecting the `payments.provider` module instance to dispatch to (defaults to `payments`). Outputs use JSON-compatible scalar values, maps, and lists across the gRPC structpb boundary. In particular, stablecoin deposit intents return `deposit_addresses` as a list of address/token objects.
 
 `step.payment_checkout_create` supports hosted Stripe Checkout for both one-time
 and recurring payments. For recurring Checkout, set `mode: subscription` and
@@ -75,6 +75,10 @@ provide either an existing `price_id` or inline price fields:
 `amount`, `currency`, `interval`, and optional `product_name`. `metadata` is
 attached to the Checkout Session; `subscription_metadata` is attached to the
 Stripe Subscription created by Checkout.
+
+`step.payment_stablecoin_deposit_intent` is Stripe-only private-preview support for [Stripe deposit-mode stablecoin payments](https://docs.stripe.com/payments/deposit-mode-stablecoin-payments). It creates a confirmed `crypto` PaymentIntent with `mode=deposit`, requests deposit addresses for `base`, `tempo`, and/or `solana`, and returns address/token details for downstream settlement evidence. The step intentionally fails closed outside the documented USDC networks.
+
+For provider workflows that hand stablecoin evidence to `workflow-compute`, see [`docs/WFCOMPUTE-SETTLEMENT.md`](docs/WFCOMPUTE-SETTLEMENT.md).
 
 ## CLI commands
 
@@ -97,7 +101,7 @@ The CLI surface is registered via [the plugin-CLI registry](https://github.com/G
 |---|---|
 | `payments.PaymentProvider` Go interface | `WebhookEndpointEnsure` added at v0.3.0; latest release is the source of truth (see [releases](https://github.com/GoCodeAlone/workflow-plugin-payments/releases)) |
 | stripe-go | v85 |
-| Minimum workflow engine | v0.3.12 (declared in `plugin.json:minEngineVersion`) |
+| Minimum workflow engine | v0.53.0 (declared in `plugin.json:minEngineVersion`) |
 | Minimum wfctl for plugin-CLI dispatch | **v0.27.5** (4-fix lineage: `#591`/`#595`/`#612`/`#613`) |
 
 Note: the repo-level `plugin.json` records the most recent release's version metadata at release time (via `goreleaser-prepare.sh`). Between releases the file lags behind the Git tag — always trust the [releases page](https://github.com/GoCodeAlone/workflow-plugin-payments/releases) and the [registry manifest](https://github.com/GoCodeAlone/workflow-registry/blob/main/plugins/payments/manifest.json) over the in-tree `plugin.json` version field.

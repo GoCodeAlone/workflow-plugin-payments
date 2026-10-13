@@ -60,6 +60,7 @@ func (p *paymentsPlugin) CreateModule(typeName, name string, config map[string]a
 func (p *paymentsPlugin) StepTypes() []string {
 	return []string{
 		"step.payment_charge",
+		"step.payment_stablecoin_deposit_intent",
 		"step.payment_capture",
 		"step.payment_refund",
 		"step.payment_fee_calculate",
@@ -147,6 +148,8 @@ func (p *paymentsPlugin) CreateStep(typeName, name string, config map[string]any
 	switch typeName {
 	case "step.payment_charge":
 		return newChargeStep(name, config)
+	case "step.payment_stablecoin_deposit_intent":
+		return newStablecoinDepositIntentStep(name, config)
 	case "step.payment_capture":
 		return newCaptureStep(name, config)
 	case "step.payment_refund":

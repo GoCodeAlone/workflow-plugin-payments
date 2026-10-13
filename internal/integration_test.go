@@ -111,8 +111,8 @@ func TestIntegration_PluginManifestAndStepTypes(t *testing.T) {
 
 	pp := plugin.(*paymentsPlugin)
 	types := pp.StepTypes()
-	if len(types) != 17 {
-		t.Errorf("expected 17 step types, got %d", len(types))
+	if len(types) != 18 {
+		t.Errorf("expected 18 step types, got %d", len(types))
 	}
 }
 

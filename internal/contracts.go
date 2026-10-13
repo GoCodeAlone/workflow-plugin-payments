@@ -36,6 +36,7 @@ var paymentsContractRegistry = &pb.ContractRegistry{
 	Contracts: []*pb.ContractDescriptor{
 		paymentsModuleContract("payments.provider", "ProviderConfig"),
 		paymentsStepContract("step.payment_charge", "PaymentChargeConfig", "PaymentChargeInput", "PaymentChargeOutput"),
+		paymentsStepContract("step.payment_stablecoin_deposit_intent", "PaymentStablecoinDepositIntentConfig", "PaymentStablecoinDepositIntentInput", "PaymentStablecoinDepositIntentOutput"),
 		paymentsStepContract("step.payment_capture", "PaymentCaptureConfig", "PaymentCaptureInput", "PaymentCaptureOutput"),
 		paymentsStepContract("step.payment_refund", "PaymentRefundConfig", "PaymentRefundInput", "PaymentRefundOutput"),
 		paymentsStepContract("step.payment_fee_calculate", "PaymentFeeCalculateConfig", "PaymentFeeCalculateInput", "PaymentFeeCalculateOutput"),

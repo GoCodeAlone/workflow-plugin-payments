@@ -86,6 +86,41 @@ Pipelines select between them via the step's `module: stripe` or `module: paypal
     customer_id: '{{.steps.upsert.customer_id}}'
 ```
 
+## Stripe stablecoin deposit intents
+
+Stripe deposit mode is a private-preview Stripe API surface for stablecoin deposits. The plugin exposes it as a Stripe-only step so applications such as workflow-compute and BuyMyWishlist can create a provider-backed PaymentIntent and record the returned deposit-address evidence without embedding Stripe-specific API calls in the control plane.
+
+```yaml
+- name: create_stablecoin_deposit
+  type: step.payment_stablecoin_deposit_intent
+  config:
+    module: stripe
+    amount: '{{ .body.amount }}'
+    currency: usd
+    networks: [base, tempo, solana]
+    stablecoin: usdc
+    idempotency_key: '{{ .request.idempotency_key }}'
+    description: 'BuyMyWishlist settlement deposit'
+```
+
+The Stripe request uses `Stripe-Version: 2026-03-04.preview`, `payment_method_types[]=crypto`, `payment_method_data[type]=crypto`, `payment_method_options[crypto][mode]=deposit`, and `confirm=true`. The implementation currently accepts only Stripe's documented USDC networks: `base`, `tempo`, and `solana`. Unsupported networks such as generic `ethereum` fail before any provider API request.
+
+Expected outputs:
+
+```yaml
+payment_intent_id: pi_...
+client_secret: pi_..._secret_...
+status: requires_action
+amount: 5000
+currency: usd
+stablecoin: usdc
+deposit_addresses:
+  - network: base
+    address: 0x...
+    stablecoin: usdc
+    token_contract_address: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+```
+
 ## 3. Source the secrets
 
 The `'{{config "stripe_secret_key"}}'` expressions above resolve via the engine's `config.provider` module. Declare each key in the schema:

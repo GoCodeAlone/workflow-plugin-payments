@@ -66,30 +66,3 @@ func (s *webhookEndpointEnsureStep) Execute(ctx context.Context, _ map[string]an
 		"signing_secret": out.SigningSecret,
 	}}, nil
 }
-
-// resolveStringSlice extracts a []string from current first, then config.
-// Accepts either []string or []any (the gRPC structpb path lands as []any).
-func resolveStringSlice(key string, current, config map[string]any) []string {
-	if v := extractStringSlice(current[key]); v != nil {
-		return v
-	}
-	return extractStringSlice(config[key])
-}
-
-func extractStringSlice(v any) []string {
-	switch s := v.(type) {
-	case []string:
-		return s
-	case []any:
-		out := make([]string, 0, len(s))
-		for _, e := range s {
-			if str, ok := e.(string); ok {
-				out = append(out, str)
-			}
-		}
-		if len(out) > 0 {
-			return out
-		}
-	}
-	return nil
-}

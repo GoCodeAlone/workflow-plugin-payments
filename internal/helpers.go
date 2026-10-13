@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // getModuleName returns the "module" key from a step config map, defaulting to "payments".
@@ -121,4 +122,36 @@ func toFloat64(v any) float64 {
 		return f
 	}
 	return 0
+}
+
+func resolveStringSlice(key string, current, config map[string]any) []string {
+	if values := toStringSlice(current[key]); len(values) > 0 {
+		return values
+	}
+	return toStringSlice(config[key])
+}
+
+func toStringSlice(v any) []string {
+	switch t := v.(type) {
+	case []string:
+		return t
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, item := range t {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case string:
+		parts := strings.Split(t, ",")
+		out := make([]string, 0, len(parts))
+		for _, part := range parts {
+			if s := strings.TrimSpace(part); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return nil
 }

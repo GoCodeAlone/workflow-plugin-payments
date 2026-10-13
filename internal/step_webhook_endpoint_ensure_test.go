@@ -114,12 +114,12 @@ func TestExtractStringSlice(t *testing.T) {
 		{"strings", []string{"a", "b"}, []string{"a", "b"}},
 		{"any-of-strings", []any{"a", "b"}, []string{"a", "b"}},
 		{"nil", nil, nil},
-		{"wrong-type", "not a slice", nil},
+		{"csv-string", "a, b", []string{"a", "b"}},
 		{"empty-any-slice", []any{}, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := extractStringSlice(tc.in)
+			got := toStringSlice(tc.in)
 			if len(got) != len(tc.want) {
 				t.Errorf("got %v, want %v", got, tc.want)
 				return
